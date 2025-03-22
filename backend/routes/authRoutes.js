@@ -11,7 +11,7 @@ import {
 
 const router = express.Router();
 
-router.get('/signup', signup);
+router.post('/signup', signup);
 router.get('/verify-email', verifyEmail);
 router.get('/login', login);
 router.get('/logout', logout);
