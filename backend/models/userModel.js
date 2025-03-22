@@ -1,24 +1,30 @@
 import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema({
+    first_name: {
+        type: String,
+        required: true,
+    },
+    middle_initial: {
+        type: String,
+        required: false,
+    },
+    last_name: {
+        type: String,
+        required: true,
+    },
+    full_name: {
+        type: String,
+        default: function () {
+            return `${this.last_name}, ${this.first_name} ${this.middle_initial}`;
+        },
+    },
     email: {
         type: String,
         required: true,
         unique: true, // Unique constraint for email
     },
     password: {
-        type: String,
-        required: true,
-    },
-    team: {
-        type: String, // For dropdown options
-        default: null, // Default value when no team is selected
-    },
-    first_name: {
-        type: String,
-        required: true,
-    },
-    last_name: {
         type: String,
         required: true,
     },
@@ -30,19 +36,13 @@ const userSchema = new mongoose.Schema({
         type: Number, // Number of hours required for the user
         required: true, // This field is now required
     },
+    team: {
+        type: String, // For dropdown options
+        required: true,
+    },
     image: {
         type: String, // Path to the user's image (optional)
         default: null,
-    },
-    full_name: {
-        type: String,
-        default: function () {
-            return `${this.first_name} ${this.last_name}`;
-        },
-    },
-    created_at: {
-        type: Date,
-        default: Date.now,
     },
     lastLogin: {
         type: Date,
