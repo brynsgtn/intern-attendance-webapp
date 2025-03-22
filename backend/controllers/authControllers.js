@@ -1,7 +1,56 @@
-
+import { User } from "../models/userModel.js";
+import bcryptjs from "bcryptjs";
+import { generateTokenAndSetCookie } from "../utils/generateTokenAndSetCookie.js";
+import { sendVerificationEmail } from "../mailtrap/emails.js";
 
 export const signup = async(req, res) => {
-    res.send("Sign up");
+    const { first_name, middle_initial, last_name, email, password, school, required_hours, team} = req.body;
+
+    try {
+        if(!first_name || !last_name || !email || !password || !school || !required_hours || !team) {
+            throw new Error("All fields are required");
+        };
+
+        const userAlreadyExists = await User.findOne({ email });
+
+        if(userAlreadyExists){
+            return res.status(404).json({ message:"User already exists" });
+        };
+
+        const hashedPassword = await bcryptjs.hash(password, 10);
+        const verificationToken = Math.floor(100000 + Math.random() * 900000).toString();
+
+        const user = new User({
+            first_name,
+            middle_initial, 
+            last_name, 
+            email, 
+            password: hashedPassword, 
+            school, 
+            required_hours, 
+            team,
+            verificationToken,
+            verificationTokenExpiresAt: Date.now() + 24 * 60 * 60 * 1000 // 24 hours
+        });
+
+        await user.save();
+
+        // jwt
+        generateTokenAndSetCookie(res,user._id);
+        await sendVerificationEmail(user.email, verificationToken);
+
+        res.status(201).json({
+            success:true,
+            message: "User created successfully",
+            user: {
+                ...user._doc,
+                password: undefined,
+            },
+        });
+
+    } catch (error) {
+        res.status(400).json({success:false, message: error.message});
+    }
 };
 
 export const verifyEmail = async(req, res) => {
