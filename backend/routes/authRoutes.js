@@ -15,7 +15,7 @@ router.post('/signup', signup);
 router.post('/verify-email', verifyEmail);
 router.post('/login', login);
 router.post('/logout', logout);
-router.post('/forgotPassword', forgotPassword);
+router.post('/forgot-password', forgotPassword);
 router.get('/resetPassword', resetPassword);
 router.get('/checkAuth', checkAuth);
 
