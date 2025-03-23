@@ -1,20 +1,20 @@
 import { User } from "../models/userModel.js";
 import bcryptjs from "bcryptjs";
 import { generateTokenAndSetCookie } from "../utils/generateTokenAndSetCookie.js";
-import { sendVerificationEmail } from "../mailtrap/emails.js";
+import { sendVerificationEmail, sendWelcomeEmail } from "../mailtrap/emails.js";
 
-export const signup = async(req, res) => {
-    const { first_name, middle_initial, last_name, email, password, school, required_hours, team} = req.body;
+export const signup = async (req, res) => {
+    const { first_name, middle_initial, last_name, email, password, school, required_hours, team } = req.body;
 
     try {
-        if(!first_name || !last_name || !email || !password || !school || !required_hours || !team) {
+        if (!first_name || !last_name || !email || !password || !school || !required_hours || !team) {
             throw new Error("All fields are required");
         };
 
         const userAlreadyExists = await User.findOne({ email });
 
-        if(userAlreadyExists){
-            return res.status(404).json({ message:"User already exists" });
+        if (userAlreadyExists) {
+            return res.status(404).json({ message: "User already exists" });
         };
 
         const hashedPassword = await bcryptjs.hash(password, 10);
@@ -22,25 +22,25 @@ export const signup = async(req, res) => {
 
         const user = new User({
             first_name,
-            middle_initial, 
-            last_name, 
-            email, 
-            password: hashedPassword, 
-            school, 
-            required_hours, 
+            middle_initial,
+            last_name,
+            email,
+            password: hashedPassword,
+            school,
+            required_hours,
             team,
             verificationToken,
-            verificationTokenExpiresAt: Date.now() + 24 * 60 * 60 * 1000 // 24 hours
+            verificationTokenExpiresAt: Date.now() + 5 * 60 * 1000 // 5 minutes
         });
 
         await user.save();
 
         // jwt
-        generateTokenAndSetCookie(res,user._id);
+        generateTokenAndSetCookie(res, user._id);
         await sendVerificationEmail(user.email, verificationToken);
 
         res.status(201).json({
-            success:true,
+            success: true,
             message: "User created successfully",
             user: {
                 ...user._doc,
@@ -49,30 +49,61 @@ export const signup = async(req, res) => {
         });
 
     } catch (error) {
-        res.status(400).json({success:false, message: error.message});
+        res.status(400).json({ success: false, message: error.message });
     }
 };
 
-export const verifyEmail = async(req, res) => {
-    res.send("Verify Email");
+export const verifyEmail = async (req, res) => {
+    const { code } = req.body;
+
+    try {
+        const user = await User.findOne({
+            verificationToken: code,
+            verificationTokenExpiresAt: { $gt: Date.now() }
+        });
+
+        if (!user) {
+            return res.status(400).json({ success: false, message: "Invalid or expired verification code" });
+        };
+
+        user.isVerified = true;
+        user.verificationToken = undefined;
+        user.verificationTokenExpiresAt = undefined;
+        await user.save();
+
+        await sendWelcomeEmail(user.email, user.name);
+
+        res.status(200).json({
+            success: true,
+            message: "Email verified successfully",
+            user: {
+                ...user._doc,
+                password: undefined,
+            },
+        });
+
+    } catch (error) {
+        console.log("error in verifyEmail", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    };
 };
 
-export const login = async(req, res) => {
+export const login = async (req, res) => {
     res.send("Login");
 };
 
-export const logout = async(req, res) => {
+export const logout = async (req, res) => {
     res.send("Log out");
 };
 
-export const forgetPassword = async(req, res) => {
+export const forgetPassword = async (req, res) => {
     res.send("Forget password");
 };
 
-export const resetPassword = async(req, res) => {
+export const resetPassword = async (req, res) => {
     res.send("Reset password");
 };
 
-export const checkAuth = async(req, res) => {
+export const checkAuth = async (req, res) => {
     res.send("Chek authorization");
 };
