@@ -142,7 +142,7 @@ export const forgotPassword = async (req, res) => {
 
         // Generate reset token
         const resetToken = crypto.randomBytes(20).toString("hex");
-        const resetTokenExpiresAt = Date.now() + 1 * 60 * 60 * 1000; // 1 hour
+        const resetTokenExpiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
 
         user.resetPasswordToken = resetToken;
         user.resetPasswordExpiresAt = resetTokenExpiresAt;
@@ -150,7 +150,7 @@ export const forgotPassword = async (req, res) => {
         await user.save();
 
         // send email
-        await sendPasswordResetEmail(user.email, `${process.env.CLIENT_URL}/reset-password/${resetToken}`);
+        await sendPasswordResetEmail(user.email, user.first_name, `${process.env.CLIENT_URL}/reset-password/${resetToken}`);
 
         res.status(200).json({ success: true, message: "Password reset link sent to your email" });
     } catch (error) {
