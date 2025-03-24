@@ -210,3 +210,33 @@ export const checkAuth = async (req, res) => {
         res.status(400).json({ success: false, message: error.message });
     };
 };
+
+export const resendVerificationEmail = async (req, res) => {
+    const { email } = req.body;
+    try {
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return res.status(400).json({ success: false, message: 'User not found' });
+        }
+
+        if (user.isVerified) {
+            return res.status(400).json({ success: false, message: 'User is already verified' });
+        }
+
+        const verificationToken = Math.floor(100000 + Math.random() * 900000).toString();
+        user.verificationToken = verificationToken;
+        user.verificationTokenExpiresAt = Date.now() + 5 * 60 * 1000 // 5 minutes
+
+        await user.save();
+
+        await sendVerificationEmail(user.email, verificationToken);
+
+        res.status(200).json({
+            success: true,
+            message: 'Verification email resent successfully',
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
