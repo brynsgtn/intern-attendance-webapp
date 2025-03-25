@@ -240,7 +240,6 @@ const updateAttendanceTime = async (req, res, type) => {
     }
 };
 
-
 export const updateTimeIn = (req, res) => updateAttendanceTime(req, res, "time_in");
 
 export const updateTimeOut = (req, res) => updateAttendanceTime(req, res, "time_out");
