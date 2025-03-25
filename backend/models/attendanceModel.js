@@ -17,14 +17,30 @@ const attendanceSchema = new mongoose.Schema({
       type: Number, 
       default: 0,
     },
+    pending_time_in:{
+      type: Date,
+      default: null,
+    },
+    pending_time_out:{
+      type: Date,
+      default: null,
+    },
     status: {
       type: String,
-      enum: ['completed', 'incomplete', 'approval pending', 'approved'],
+      enum: ['completed', 'incomplete', 'pending', 'approved', 'rejected'],
       default: 'incomplete',
     },
     requested_edit: {
       type: Boolean,
       default: false,
+    },
+    request_reason: {
+      type: String,
+      default: null,
+    },
+    rejection_reason: {
+      type: String,
+      default: null,
     },
     created_at: {
       type: Date,
