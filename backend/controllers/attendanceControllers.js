@@ -322,7 +322,6 @@ export const approveAttendance = async (req, res) => {
     }
 };
 
-
 export const rejectAttendance = async (req, res) => {
     try {
         const { date, reason } = req.body;

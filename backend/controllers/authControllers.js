@@ -240,3 +240,53 @@ export const resendVerificationEmail = async (req, res) => {
         res.status(500).json({ success: false, message: 'Server error' });
     }
 };
+
+export const updateUserRole = async (req, res) => {
+    try {
+        const { user_id, role } = req.body;
+        const requestingUser = req.user; // Assuming authentication middleware adds `req.user`
+   
+        // Validate input
+        if (!user_id || !role) {
+            return res.status(400).json({ message: "User ID and role are required." });
+        }
+
+        // Check if the requesting user is an admin
+        if (!requestingUser?.isAdmin) {
+            return res.status(403).json({ message: "Only admins can update user roles." });
+        }
+
+        // Fetch the user to be updated
+        const user = await User.findById(user_id);
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
+        }
+
+        // Handle role assignment
+        if (role === "ADMIN") {
+            user.isAdmin = true;
+            user.isTeamLeader = false;
+            user.isFinished = false;
+        } else if (role === "TEAM_LEADER") {
+            user.isAdmin = false;
+            user.isTeamLeader = true;
+            user.isFinished = false;
+        } else if (role === "MEMBER") {
+            user.isAdmin = false;
+            user.isTeamLeader = false;
+            user.isFinished = false;
+        } else if (role === "FINISHED") {
+            user.isFinished = true;
+            user.isAdmin = false;
+            user.isTeamLeader = false;
+        } else {
+            return res.status(400).json({ message: "Invalid role selection. Choose 'ADMIN', 'TEAM_LEADER', or 'MEMBER'." });
+        }
+
+        await user.save();
+        res.status(200).json({ message: `User role updated successfully to ${role}.` });
+
+    } catch (error) {
+        res.status(500).json({ message: "Internal server error.", error: error.message });
+    }
+}

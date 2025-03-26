@@ -52,39 +52,39 @@ const attendanceSchema = new mongoose.Schema({
     },
   }, { timestamps: true });
   
-  attendanceSchema.pre('save', function (next) {
-    if (this.requested_edit) {
-      this.status = 'approval pending';
-    } else if (this.time_in && this.time_out) {
-      this.status = 'completed';
+  // attendanceSchema.pre('save', function (next) {
+  //   if (this.requested_edit) {
+  //     this.status = 'approval pending';
+  //   } else if (this.time_in && this.time_out) {
+  //     this.status = 'completed';
   
-      const timeIn = new Date(this.time_in);
-      const timeOut = new Date(this.time_out);
-      let diffMs = timeOut - timeIn;
+  //     const timeIn = new Date(this.time_in);
+  //     const timeOut = new Date(this.time_out);
+  //     let diffMs = timeOut - timeIn;
   
-      if (diffMs > 0) {
-        let hours = diffMs / (1000 * 60 * 60);
+  //     if (diffMs > 0) {
+  //       let hours = diffMs / (1000 * 60 * 60);
   
-        if (hours > 4) {
-          hours = hours - 1;
-        }
+  //       if (hours > 4) {
+  //         hours = hours - 1;
+  //       }
   
-        this.total_hours = parseFloat(hours.toFixed(2));
-      }
-    } else {
-      this.status = 'incomplete';
-    }
+  //       this.total_hours = parseFloat(hours.toFixed(2));
+  //     }
+  //   } else {
+  //     this.status = 'incomplete';
+  //   }
   
-    this.updated_at = Date.now();
-    next();
-  });
+  //   this.updated_at = Date.now();
+  //   next();
+  // });
   
-  /** Admin Approval Method **/
-  attendanceSchema.methods.approveAttendance = function () {
-    this.status = 'approved';
-    this.requested_edit = false;
-    return this.save();
-  };
+  // /** Admin Approval Method **/
+  // attendanceSchema.methods.approveAttendance = function () {
+  //   this.status = 'approved';
+  //   this.requested_edit = false;
+  //   return this.save();
+  // };
   
   export const Attendance = mongoose.model('Attendance', attendanceSchema);
   
