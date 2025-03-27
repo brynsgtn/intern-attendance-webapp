@@ -199,7 +199,7 @@ export const resetPassword = async (req, res) => {
 
 export const checkAuth = async (req, res) => {
     try {
-        const user = await User.findById(req.userId).select("-password");
+        const user = await User.findById(req.user._id).select("-password");
         if (!user) {
             return res.status(400).json({ success: false, message: "User not found" });
         }
@@ -290,3 +290,5 @@ export const updateUserRole = async (req, res) => {
         res.status(500).json({ message: "Internal server error.", error: error.message });
     }
 }
+
+//updateUser(user and admin) - update user information with picture
