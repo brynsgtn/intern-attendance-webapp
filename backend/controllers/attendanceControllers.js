@@ -647,4 +647,4 @@ export const filterAttendanceByName = async (req, res) => {
 // viewAllEditRequest(admin) - view all edit request
 // SendEmail for edit request(mailtrap to admin) - to be placed inside updateTimeIn and updateTimeOut
 // SendEmail for approved on denied request(mailtrap to member) -
-// sendEmail Completion (mailtrap to member)
+// sendEmail Completion (mailtrap to member) - is this possible?
