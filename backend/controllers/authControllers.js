@@ -1,14 +1,16 @@
 import bcryptjs from "bcryptjs";
 import crypto from "crypto";
+import fs from 'fs/promises';
+import path from 'path';
 
 import { User } from "../models/userModel.js";
 import { generateTokenAndSetCookie } from "../utils/generateTokenAndSetCookie.js";
-import { 
-    sendVerificationEmail, 
-    sendWelcomeEmail, 
+import {
+    sendVerificationEmail,
+    sendWelcomeEmail,
     sendPasswordResetEmail,
     sendResetSuccessEmail
- } from "../mailtrap/emails.js";
+} from "../mailtrap/emails.js";
 
 export const signup = async (req, res) => {
     const { first_name, middle_initial, last_name, email, password, school, required_hours, team } = req.body;
@@ -245,7 +247,7 @@ export const updateUserRole = async (req, res) => {
     try {
         const { user_id, role } = req.body;
         const requestingUser = req.user; // Assuming authentication middleware adds `req.user`
-   
+
         // Validate input
         if (!user_id || !role) {
             return res.status(400).json({ message: "User ID and role are required." });
@@ -291,4 +293,65 @@ export const updateUserRole = async (req, res) => {
     }
 }
 
-//updateUser(user and admin) - update user information with picture
+//updateUser(user) - update user information with picture
+export const updateUserProfile = async (req, res) => {
+    try {
+        console.log('Request Body:', req.body);
+        console.log('Request File:', req.file);
+
+        const user = await User.findById(req.user._id);
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
+        }
+
+        // Handle file upload
+        let newImage = user.image; // Default to existing image
+        if (req.file) {
+            newImage = req.file.filename;
+
+            // Optional: Delete old image if exists
+            if (user.image) {
+                try {
+                    const oldFilePath = path.join(process.cwd(), 'public/images', user.image);
+                    // Check if the file exists before attempting to delete
+                    if (fs.existsSync(oldFilePath)) {
+                        await fs.promises.unlink(oldFilePath);  // Delete the old image asynchronously
+                        console.log(`Old image ${user.image} deleted.`);
+                    }
+                } catch (err) {
+                    console.log('Old file deletion error:', err);
+                }
+            }
+        }
+
+        // Update user fields
+        user.first_name = req.body.first_name || user.first_name;
+        user.middle_initial = req.body.middle_initial || user.middle_initial;
+        user.last_name = req.body.last_name || user.last_name;
+        user.email = req.body.email || user.email;
+        user.school = req.body.school || user.school;
+        user.required_hours = req.body.required_hours || user.required_hours;
+        user.team = req.body.team || user.team;
+        user.image = newImage;
+
+        const updatedUser = await user.save();
+
+        res.status(200).json({
+            _id: updatedUser._id,
+            first_name: updatedUser.first_name,
+            middle_initial: updatedUser.middle_initial,
+            last_name: updatedUser.last_name,
+            email: updatedUser.email,
+            school: updatedUser.school,
+            required_hours: updatedUser.required_hours,
+            team: updatedUser.team,
+            image: updatedUser.image,
+        });
+    } catch (error) {
+        res.status(500).json({ message: "Internal server error.", error: error.message });
+    }
+};
+
+//to do
+// admin can also edit their own profile other users profiles
