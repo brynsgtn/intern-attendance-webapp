@@ -1,7 +1,9 @@
 import { 
     VERIFICATION_EMAIL_TEMPLATE, 
     PASSWORD_RESET_REQUEST_TEMPLATE,
-    PASSWORD_RESET_SUCCESS_TEMPLATE
+    PASSWORD_RESET_SUCCESS_TEMPLATE,
+    EDIT_REQUEST_EMAIL_TEMPLATE,
+    APPROVAL_DENIAL_TEMPLATE
  } from "./emailTemplates.js";
 import { mailtrapClient, sender } from "./mailtrapConfig.js";
 
@@ -90,3 +92,50 @@ export const sendResetSuccessEmail = async (email, firstName) => {
 		throw new Error(`Error sending password reset email: ${error}`);
     };
 }
+
+export const sendEditRequestEmail = async (email, memberName, type, requestReason) => {
+    const recipient = [{ email }];
+    const emailContent = EDIT_REQUEST_EMAIL_TEMPLATE
+        .replace("{memberName}", memberName)
+        .replace("{type}", type)
+        .replace("{requestReason}", requestReason);
+
+    try {
+        const response = await mailtrapClient.send({
+            from: sender,
+            to: recipient,
+            subject: "Attendance Edit Request",
+            html: emailContent,
+            category: "Attendance Edit Request",
+        });
+
+        console.log("Edit request email sent successfully", response);
+    } catch (error) {
+        console.error("Error sending edit request email", error);
+        throw new Error(`Error sending edit request email: ${error}`);
+    }
+};
+
+export const sendApprovalDenialEmail = async (email, memberName, status, changeDetails) => {
+    const recipient = [{ email }];
+    const emailContent = APPROVAL_DENIAL_TEMPLATE
+        .replace("{status}", status)
+        .replace("{status}", status)
+        .replace("{memberName}", memberName)
+        .replace("{changeDetails}", changeDetails);
+
+    try {
+        const response = await mailtrapClient.send({
+            from: sender,
+            to: recipient,
+            subject: `Your Edit Request has been ${status}`,
+            html: emailContent,
+            category: "Edit Request Status Update",
+        });
+
+        console.log(`Edit request ${status} email sent successfully`, response);
+    } catch (error) {
+        console.error(`Error sending edit request ${status} email`, error);
+        throw new Error(`Error sending edit request ${status} email: ${error}`);
+    }
+};
