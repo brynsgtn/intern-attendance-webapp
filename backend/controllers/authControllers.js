@@ -293,7 +293,7 @@ export const updateUserRole = async (req, res) => {
     }
 }
 
-//updateUser(user) - update user information with picture
+// USER ONLY
 export const updateUserProfile = async (req, res) => {
     try {
         console.log('Request Body:', req.body);
@@ -353,5 +353,34 @@ export const updateUserProfile = async (req, res) => {
     }
 };
 
-//to do
-// admin can also edit their own profile other users profiles
+// ADMIN ONLY
+export const adminUpdateUserProfile = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const requestingUser = req.user; // Assuming authentication middleware adds `req.user`
+
+        // Check if the requesting user is an admin
+        if (!requestingUser?.isAdmin) {
+            return res.status(403).json({ message: "Only admins can update other user profiles." });
+        }
+
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
+        }
+
+        // Update fields
+        user.first_name = req.body.first_name || user.first_name;
+        user.middle_initial = req.body.middle_initial || user.middle_initial;
+        user.last_name = req.body.last_name || user.last_name;
+        user.email = req.body.email || user.email;
+        user.school = req.body.school || user.school;
+        user.required_hours = req.body.required_hours || user.required_hours;
+        user.team = req.body.team || user.team;
+
+        await user.save();
+        res.status(200).json({ message: "User profile updated successfully.", user });
+    } catch (error) {
+        res.status(500).json({ message: "Internal server error.", error: error.message });
+    }
+};
