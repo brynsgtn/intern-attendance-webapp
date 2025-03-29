@@ -93,3 +93,75 @@ export const PASSWORD_RESET_REQUEST_TEMPLATE = `
 </body>
 </html>
 `;
+
+export const EDIT_REQUEST_EMAIL_TEMPLATE = `
+    <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: #4CAF50; color: white; text-align: center; padding: 10px; }
+                .content { background-color: #f9f9f9; padding: 20px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>Edit Request Submitted</h1>
+            </div>
+            <div class="content">
+                <p>Hello Admin,</p>
+                <p>A member has requested to edit their time-in or time-out record. Please review the request:</p>
+                <ul>
+                    <li><strong>Member Name:</strong> {memberName}</li>
+                    <li><strong>Requested Change: </strong>{type}</li>
+                    <li><strong>Reason for Request: </strong>{requestReason}</li>
+                </ul>
+                <p>Please review and approve/deny the request.</p>
+                <p>Best regards,<br>Ollopa Internship</p>
+            </div>
+        </body>
+    </html>
+`;
+
+
+export const APPROVAL_DENIAL_TEMPLATE = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit Request Update</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(to right, #4CAF50, #45a049); padding: 20px; text-align: center;">
+    <h1 style="color: white; margin: 0;">Edit Request {status}</h1>
+  </div>
+  <div style="background-color: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+    <p>Hello {memberName},</p>
+    <p>Your request to edit your time-in/time-out record has been <strong>{status}</strong>.</p>
+    <p><strong>Details:</strong> {changeDetails}</p>
+    <p>If you have any concerns, please reach out to your administrator.</p>
+    <p>Best regards,<br>Ollopa Internship</p>
+  </div>
+</body>
+</html>`;
+
+export const COMPLETION_TEMPLATE = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Request Completed</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(to right, #4CAF50, #45a049); padding: 20px; text-align: center;">
+    <h1 style="color: white; margin: 0;">Request Completed</h1>
+  </div>
+  <div style="background-color: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+    <p>Hello {memberName},</p>
+    <p>Your request to update your records has been successfully processed.</p>
+    <p>If you have any concerns, feel free to contact support.</p>
+    <p>Best regards,<br>Ollopa Internship</p>
+  </div>
+</body>
+</html>`;
