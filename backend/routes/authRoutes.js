@@ -12,7 +12,8 @@ import {
     signup, 
     updateUserRole, 
     verifyEmail,
-    updateUserProfile
+    updateUserProfile,
+    adminUpdateUserProfile
 } from '../controllers/authControllers.js';
 import { verifyToken } from '../middleware/verifyToken.js';
 
@@ -99,5 +100,6 @@ router.post('/forgot-password', forgotPassword);
 router.post('/reset-password/:token', resetPassword);
 router.patch('/update-user-role', verifyToken, updateUserRole);
 router.put('/update-user-profile', verifyToken, uploadMiddleware, updateUserProfile);
+router.put('/update-other-user-profile/:id', verifyToken, adminUpdateUserProfile);
 
 export default router; 
