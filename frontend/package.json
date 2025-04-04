@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.0.17",
+    "dayjs": "^1.11.13",
+    "dayjs-plugin-utc": "^0.1.2",
     "framer-motion": "^12.6.2",
     "lucide-react": "^0.485.0",
     "react": "^19.0.0",

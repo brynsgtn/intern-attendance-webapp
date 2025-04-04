@@ -6,14 +6,14 @@ import Input from "../components/Input";
 import PasswordInput from "../components/PasswordInput";
 import { useAuthStore } from "../store/authStore";
 
-const LogInPage = ({ isDarkMode }) => {
+const LogInPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showResend, setShowResend] = useState(false);
 
   const navigate = useNavigate();
 
-  const { login, isLoading, error, resendVerificationEmail, clearError } = useAuthStore();
+  const { login, isLoading, error, resendVerificationEmail, clearError, isDarkMode } = useAuthStore();
 
   const handleLogin = async (e) => {
     e.preventDefault();
