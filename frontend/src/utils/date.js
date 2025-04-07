@@ -8,6 +8,5 @@ export const formatDate = (dateString) => {
         month: "2-digit", // This gives the 2-digit month format
         day: "2-digit", // This gives the 2-digit day format
         year: "2-digit", // This gives the 2-digit year format
-        timeZone: 'Asia/Manila' // Set timezone to Manila consistently
     });
 };

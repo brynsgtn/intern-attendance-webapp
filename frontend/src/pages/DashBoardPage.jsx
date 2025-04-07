@@ -21,7 +21,6 @@ const DashboardPage = () => {
 		return <div className="flex justify-center items-center h-screen">Loading user data...</div>;
 	}
 
-
 	useEffect(() => {
 		if (user && user._id) {
 			const getTotalHoursData = async () => {
@@ -34,16 +33,15 @@ const DashboardPage = () => {
 			};
 			getTotalHoursData();
 		}
-	}, [user._id, totalHours]); // Add totalHours as a dependency
+	}, [user._id, getTotalHours, refreshKey]); // Added refreshKey as dependency
 
-	console.log(user)
 	const handleTimeIn = async () => {
 		try {
 			await timeIn(user._id);
 			toast.success("Successfully timed in!");
 			const response = await getTotalHours(user._id); // Fetch updated hours
 			setTotalHours(response.data.totalHours);
-			refreshAttendance(user.id);
+			refreshAttendance(user._id);
 			setRefreshKey(prev => prev + 1); // Trigger refetch
 		} catch (error) {
 			console.error("Time in error:", error);
@@ -57,7 +55,7 @@ const DashboardPage = () => {
 			toast.success("Successfully timed out!");
 			const response = await getTotalHours(user._id); // Fetch updated hours
 			setTotalHours(response.data.totalHours);
-			refreshAttendance(user.id);
+			refreshAttendance(user._id);
 			setRefreshKey(prev => prev + 1); // Trigger refetch
 		} catch (error) {
 			console.error("Time out error:", error);
@@ -70,35 +68,44 @@ const DashboardPage = () => {
 		100
 	).toFixed(1);
 
-
-
 	return (
 		<>
-			<main className="flex-grow flex justify-center items-center px-4 mt-120 mb-30 max-h-screen sm:px-1 lg:px-8 max-w-6xl w-full">
+			<main className="flex-grow flex justify-center items-center px-4 mt-70 mb-50 max-h-screen sm:px-1 lg:px-8 max-w-6xl w-full">
 				<motion.div
 					initial={{ opacity: 0, scale: 0.9 }}
 					animate={{ opacity: 1, scale: 1 }}
 					exit={{ opacity: 0, scale: 0.9 }}
 					transition={{ duration: 0.5 }}
-					className={`max-w-6xl w-full py-8 px-2 md:p-8 bg-opacity-80 backdrop-filter backdrop-blur-lg rounded-xl shadow-2xl text-white ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} `}
+					className={`max-w-6xl w-full py-8 px-2 md:p-8 bg-opacity-80 backdrop-filter backdrop-blur-lg rounded-xl shadow-2xl text-white ${isDarkMode ? "bg-gray-800" : "bg-gray-100"
+						} `}
 				>
-					<h2 className={`text-xl sm:text-4xl font-bold mb-10  bg-gradient-to-r ${isDarkMode ? 'from-green-400 to-emerald-500' : 'from-blue-500 to-gray-400'} text-transparent bg-clip-text`}>
+					<h2
+						className={`text-xl sm:text-4xl font-bold mb-10 bg-gradient-to-r ${isDarkMode ? "from-green-400 to-emerald-500" : "from-blue-500 to-gray-400"
+							} text-transparent bg-clip-text`}
+					>
 						Your Attendance Dashboard
 					</h2>
 
 					<div className="space-y-6">
 						<motion.div
-							className={`relative p-6 bg-opacity-50 rounded-lg ${isDarkMode ? "bg-gray-900 text-gray-300" : "bg-gray-200 text-gray-900"}`}
+							className={`relative p-6 bg-opacity-50 rounded-lg ${isDarkMode ? "bg-gray-900 text-gray-300" : "bg-gray-200 text-gray-900"
+								}`}
 							initial={{ opacity: 0, y: 20 }}
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ delay: 0.2 }}
 						>
-							<h3 className={`text-lg sm:text-xl font-semibold ${isDarkMode ? 'text-emerald-500' : 'text-blue-500'} mb-4`}>
+							<h3
+								className={`text-lg sm:text-xl font-semibold ${isDarkMode ? "text-emerald-500" : "text-blue-500"
+									} mb-4`}
+							>
 								Profile Information
 							</h3>
-							{/* Edit Button - Always Visible, Darker on Hover */}
+							{/* Edit Button */}
 							<button
-								className={`absolute top-4 right-4 p-2 rounded-full ${isDarkMode ? "hover:text-white text-emerald-500" : "hover:text-emerald-500 text-blue-500"} transition cursor-pointer`}
+								className={`absolute top-4 right-4 p-2 rounded-full ${isDarkMode
+										? "hover:text-white text-emerald-500"
+										: "hover:text-emerald-500 text-blue-500"
+									} transition cursor-pointer`}
 								onClick={() => setIsModalOpen(true)}
 							>
 								<Edit size={18} />
@@ -107,20 +114,25 @@ const DashboardPage = () => {
 							{/* Container for image, user details, and role */}
 							<div className="flex flex-col md:flex-row items-center md:items-start gap-6 group">
 								{/* Profile Image */}
-
 								<div className="flex-shrink-0 md:ml-10 mt-5">
 									<img
-										src={user.image ? `http://localhost:3000/images/${user.image}` : '/profile.png'}
+										src={
+											user.image
+												? `http://localhost:3000/images/${user.image}`
+												: "/profile.png"
+										}
 										alt="User Profile"
 										className="w-45 h-45 rounded-full object-cover shadow-lg"
 									/>
 								</div>
 
-
 								{/* User Details */}
 								<div className="flex-1 md:ml-10">
 									<p className="font-semibold text-xs md:text-lg">
-										Name: <span className="font-normal">{user.last_name}, {user.first_name} {user.middle_initial}</span>
+										Name:{" "}
+										<span className="font-normal">
+											{user.last_name}, {user.first_name} {user.middle_initial}
+										</span>
 									</p>
 									<p className="font-semibold text-xs md:text-lg mt-2">
 										Email: <span className="font-normal">{user.email}</span>
@@ -129,13 +141,13 @@ const DashboardPage = () => {
 										School: <span className="font-normal">{user.school}</span>
 									</p>
 
-
 									{/* Progress Bar for Required Hours */}
 									<div className="mt-4">
 										<p className="font-semibold">Progress:</p>
 										<div className="w-full bg-gray-700 rounded-full h-4 overflow-hidden mt-1 relative">
 											<div
-												className={`${isDarkMode ? 'bg-green-500' : 'bg-blue-500'} h-4 rounded-full transition-all`}
+												className={`${isDarkMode ? "bg-green-500" : "bg-blue-500"
+													} h-4 rounded-full transition-all`}
 												style={{ width: `${completedPercentage}%` }}
 											></div>
 											<span className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-white">
@@ -143,21 +155,26 @@ const DashboardPage = () => {
 											</span>
 										</div>
 										<p className="text-sm mt-1">
-											{totalHours.toFixed(2)} / {user.required_hours} hours completed
+											{totalHours.toFixed(2)} / {user.required_hours} hours
+											completed
 										</p>
 									</div>
 								</div>
 
-
-								{/* Role Section - Positioned on the Right Side */}
+								{/* Role Section */}
 								<div className="md:flex flex-col items-end">
-									<span className={`px-3 py-1 text-sm font-semibold text-white ${isDarkMode ? 'bg-green-500' : 'bg-blue-500'} rounded-full shadow-md`}>
+									<span
+										className={`px-3 py-1 text-sm font-semibold text-white ${isDarkMode ? "bg-green-500" : "bg-blue-500"
+											} rounded-full shadow-md`}
+									>
 										{user.team ? `${user.team} - ` : ""}
-										{user.isAdmin ? "Admin" : user.isTeamLeader ? "Team Leader" : "Member"}
+										{user.isAdmin
+											? "Admin"
+											: user.isTeamLeader
+												? "Team Leader"
+												: "Member"}
 									</span>
 								</div>
-								{/* Clock In & Clock Out Buttons */}
-
 							</div>
 							<div className="mt-4 flex flex-col md:flex-row items-center justify-center h-full gap-3">
 								<button
@@ -168,32 +185,22 @@ const DashboardPage = () => {
 								</button>
 								<button
 									className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white shadow-md transition"
-									onClick={handleTimeOut}>
+									onClick={handleTimeOut}
+								>
 									<LogOut size={18} /> Time Out
 								</button>
 							</div>
-
 						</motion.div>
-						<TabMenu />
+
+						{/* Tab Menu - Now contains the content for each tab */}
 						<motion.div
-							className={`relative p-6 bg-opacity-50 rounded-lg ${isDarkMode ? "bg-gray-900 text-gray-300" : "bg-gray-200 text-gray-900"}`}
 							initial={{ opacity: 0, y: 20 }}
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ delay: 0.4 }}
 						>
-					
-							<h3 className={`text-lg sm:text-xl font-semibold ${isDarkMode ? 'text-emerald-500' : 'text-blue-500'} mb-4`}>Recent Attendance</h3>
-							<UserTable key={refreshKey} />
+							<TabMenu refreshKey={refreshKey} />
 						</motion.div>
 					</div>
-
-					<motion.div
-						initial={{ opacity: 0, y: 20 }}
-						animate={{ opacity: 1, y: 0 }}
-						transition={{ delay: 0.6 }}
-						className="mt-4"
-					>
-					</motion.div>
 				</motion.div>
 			</main>
 
@@ -202,6 +209,7 @@ const DashboardPage = () => {
 		</>
 	);
 };
+
 
 export default DashboardPage;
 
@@ -253,7 +261,7 @@ const EditProfileModal = ({ isOpen, onClose }) => {
 
 				// Instead of immediately navigating, add a small delay
 				setTimeout(() => {
-					navigate("/"); // Navigate after the state has been updated
+					navigate("/dashboard"); // Navigate after the state has been updated
 				}, 100);
 			}
 		} catch (error) {
@@ -362,7 +370,7 @@ const EditProfileModal = ({ isOpen, onClose }) => {
 				</form>
 
 			</motion.div>
-		
+
 		</div>
 	);
 };

@@ -54,6 +54,51 @@ export const useAttendanceStore = create((set) => ({
             throw error;
 		}
 	},
+    getTeamMembersAttendance : async () => {
+        try {
+            const response = await axios.get(`${API_URL}/team-attendance`);
+            console.log("Fetched Attendance Data:", response); // Log attendance
+            return response;
+        } catch (error) {
+            console.error("Error fetching attendance:", error);
+        }
+    },
+    getAllInternsAttendance : async () => {
+        try {
+            const response = await axios.get(`${API_URL}/get-all-attendance`);
+            console.log("Fetched Attendance Data:", response); // Log attendance
+            return response;
+        } catch (error) {
+            console.error("Error fetching attendance:", error);
+        }
+    },
+    fetchAllRequests : async () => {
+        try {
+            const response = await axios.get(`${API_URL}/edit-requests`);
+            console.log("Fetched Attendance Data:", response); // Log attendance
+            return response;
+        } catch (error) {
+            console.error("Error fetching attendance:", error);
+        }
+    },
+    approveRequest: async (date, userId) => {
+		try {
+			const response = await axios.post(`${API_URL}/approve-attendance/${userId}`, {date})
+            return response.data; 
+		} catch (error) {
+            console.error("Error in approveRequest:", error);
+            throw error;
+		}
+	},
+    rejectRequest: async (date, reason, userId) => {
+        try {
+          const response = await axios.post(`${API_URL}/reject-attendance/${userId}`, { date, reason });
+          return response.data;
+        } catch (error) {
+          console.error("Error in rejectRequest:", error);
+          throw error;
+        }
+      },
 })
 );
 

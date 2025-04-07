@@ -7,6 +7,7 @@ import PasswordStrengthMeter from "../components/PasswordStrengthMeter";
 import { Link, useNavigate } from "react-router-dom";
 import PasswordInput from "../components/PasswordInput";
 import { useAuthStore } from "../store/authStore";
+import { Moon, Sun } from "lucide-react"; // Lucide icons
 
 const SignUpPage = () => {
     const [firstName, setFirstName] = useState('');
@@ -20,7 +21,7 @@ const SignUpPage = () => {
     const [team, setTeam] = useState('');
     const navigate = useNavigate();
 
-    const { signup, error, isLoading, clearError, isDarkMode } = useAuthStore();
+    const { signup, error, isLoading, clearError, isDarkMode, darkmode } = useAuthStore();
 
     const confirmedPassword = password === confirmPassword;
 
@@ -51,7 +52,7 @@ const SignUpPage = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className={`max-w-4xl w-full ${isDarkMode ? 'bg-gray-900' : 'bg-white text-gray-800'} bg-opacity-80  rounded-2xl shadow-xl overflow-hidden`}
+                className={`mt-30 mb-10 max-w-4xl w-full ${isDarkMode ? 'bg-gray-900 ' : 'bg-white text-gray-800'} bg-opacity-80  rounded-xl shadow-xl overflow-hidden`}
             >
                 <div className="p-8">
                     <h2 className={`text-3xl font-bold mb-10 text-center bg-gradient-to-r ${isDarkMode ? 'from-green-400 to-emerald-500' : 'from-blue-600 to-blue-500'} text-transparent bg-clip-text`}>
@@ -202,7 +203,7 @@ const SignUpPage = () => {
                             />
 
                             {/* Email and password inputs - 2 columns */}
-                            <div className="col-span-3 grid grid-cols-2 gap-x-4">
+                            <div className="col-span-3 grid grid-cols-3 gap-x-4">
                                 <Input
                                     icon={Mail}
                                     type="email"
@@ -222,24 +223,6 @@ const SignUpPage = () => {
                                     isDarkMode={isDarkMode}
                                     required
                                 />
-                            </div>
-
-                            {/* School spans full width */}
-                            <div className="col-span-3">
-                                <Input
-                                    icon={School}
-                                    type="text"
-                                    name="school"
-                                    placeholder="School"
-                                    value={school}
-                                    onChange={(e) => setSchool(e.target.value)}
-                                    isDarkMode={isDarkMode}
-                                    required
-                                />
-                            </div>
-
-                            {/* Confirm password, hours and team */}
-                            <div className="col-span-3 grid grid-cols-3 gap-x-4">
                                 <PasswordInput
                                     type="password"
                                     name="confirm_password"
@@ -249,30 +232,49 @@ const SignUpPage = () => {
                                     isDarkMode={isDarkMode}
                                     required
                                 />
-                                <Input
-                                    icon={Hourglass}
-                                    type="number"
-                                    name="required_hours"
-                                    placeholder="Required Hours"
-                                    value={requiredHours}
-                                    onChange={(e) => {
-                                        const value = e.target.value;
-                                        if (value === "" || Number(value) >= 0) {
-                                            setRequiredHours(value);
-                                        }
-                                    }}
-                                    isDarkMode={isDarkMode}
-                                    required
-                                />
-                                <Dropdown
-                                    icon={Users}
-                                    name="team"
-                                    options={teamOptions}
-                                    value={team}
-                                    onChange={(e) => setTeam(e.target.value)}
-                                    isDarkMode={isDarkMode}
-                                    required
-                                />
+                            </div>
+
+                            <div className="col-span-3 grid grid-cols-4 gap-x-4">
+                                <div className="col-span-2">
+                                    <Input
+                                        icon={School}
+                                        type="text"
+                                        name="school"
+                                        placeholder="School"
+                                        value={school}
+                                        onChange={(e) => setSchool(e.target.value)}
+                                        isDarkMode={isDarkMode}
+                                        required
+                                    />
+                                </div>
+                                <div className="col-span-1/2"> {/* Required Hours takes up 0.5 columns */}
+                                    <Input
+                                        icon={Hourglass}
+                                        type="number"
+                                        name="required_hours"
+                                        placeholder="Required Hours"
+                                        value={requiredHours}
+                                        onChange={(e) => {
+                                            const value = e.target.value;
+                                            if (value === "" || Number(value) >= 0) {
+                                                setRequiredHours(value);
+                                            }
+                                        }}
+                                        isDarkMode={isDarkMode}
+                                        required
+                                    />
+                                </div>
+                                <div className="col-span-1/2"> {/* Team Dropdown takes up 0.5 columns */}
+                                    <Dropdown
+                                        icon={Users}
+                                        name="team"
+                                        options={teamOptions}
+                                        value={team}
+                                        onChange={(e) => setTeam(e.target.value)}
+                                        isDarkMode={isDarkMode}
+                                        required
+                                    />
+                                </div>
                             </div>
                         </div>
 
@@ -298,13 +300,24 @@ const SignUpPage = () => {
 
                     </form>
                 </div>
-                <div className={`px-8 py-4 flex justify-center ${isDarkMode ? "bg-gray-900 bg-opacity-50" : "bg-gray-200"}`}>
-                    <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                <div className={`px-8 py-4 flex justify-center items-center ${isDarkMode ? "bg-gray-900 bg-opacity-50" : "bg-gray-200"}`}>
+                    <p className={`text-sm mr-5 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
                         Already have an account?{" "}
                         <Link to={'/login'} onClick={clearError} className={`${isDarkMode ? "text-green-400 hover:underline" : "text-blue-600 hover:underline"}`}>
                             Login
                         </Link>
+
                     </p>
+                    <button
+                        onClick={darkmode}
+                        title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                        className={`p-2 rounded-full border-2 transition duration-300 ${isDarkMode
+                            ? "border-white text-white hover:bg-white hover:text-black"
+                            : "border-gray-800 text-gray-800 hover:bg-gray-800 hover:text-white"
+                            }`}
+                    >
+                        {isDarkMode ? <Sun size={15} /> : <Moon size={15} />}
+                    </button>
                 </div>
             </motion.div>
         </>

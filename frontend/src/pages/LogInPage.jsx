@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import Input from "../components/Input";
 import PasswordInput from "../components/PasswordInput";
 import { useAuthStore } from "../store/authStore";
+import { Moon, Sun } from "lucide-react"; // Lucide icons
 
 const LogInPage = () => {
   const [email, setEmail] = useState("");
@@ -13,7 +14,7 @@ const LogInPage = () => {
 
   const navigate = useNavigate();
 
-  const { login, isLoading, error, resendVerificationEmail, clearError, isDarkMode } = useAuthStore();
+  const { login, isLoading, error, resendVerificationEmail, clearError, isDarkMode, darkmode } = useAuthStore();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -75,6 +76,16 @@ const LogInPage = () => {
             <Link to='/forgot-password' className={`text-sm ${isDarkMode ? "text-green-400" : "text-blue-600"}`}>
               Forgot password?
             </Link>
+            <button
+              onClick={darkmode}
+              title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              className={`p-2 ms-auto rounded-full border-2 transition duration-300 ${isDarkMode
+                  ? "border-white text-white hover:bg-white hover:text-black"
+                  : "border-gray-800 text-gray-800 hover:bg-gray-800 hover:text-white"
+                }`}
+            >
+              {isDarkMode ? <Sun size={15} /> : <Moon size={15} />}
+            </button>
           </div>
           <p className='text-red-500 font-semibold mb-2'></p>
           {error && <p className='text-red-500 font-semibold mb-2'>{error}</p>}

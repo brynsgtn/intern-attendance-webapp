@@ -3,14 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast } from "react-hot-toast";
 import { useAuthStore } from "../store/authStore";
+import { Moon, Sun } from "lucide-react"; // Lucide icons
 
 
-const EmailVerificationPage = ({ isDarkMode }) => {
+const EmailVerificationPage = () => {
     const [code, setCode] = useState(["", "", "", "", "", ""]);
     const inputRefs = useRef([]);
     const navigate = useNavigate();
 
-    const { error, isLoading, verifyEmail } = useAuthStore();
+    const { error, isLoading, verifyEmail, isDarkMode, darkmode } = useAuthStore();
 
 
     const handleChange = (index, value) => {
@@ -49,19 +50,19 @@ const EmailVerificationPage = ({ isDarkMode }) => {
         e.preventDefault();
         const verificationCode = code.join("");
         try {
-        	await verifyEmail(verificationCode);
-        	navigate("/");
-        	toast.success("Email verified successfully");
+            await verifyEmail(verificationCode);
+            navigate("/");
+            toast.success("Email verified successfully");
         } catch (error) {
-        	console.log(error);
+            console.log(error);
         }
     };
 
     // Auto submit when all fields are filled
     useEffect(() => {
-    	if (code.every((digit) => digit !== "")) {
-    		handleSubmit(new Event("submit"));
-    	}
+        if (code.every((digit) => digit !== "")) {
+            handleSubmit(new Event("submit"));
+        }
     }, [code]);
 
     return (
@@ -70,8 +71,20 @@ const EmailVerificationPage = ({ isDarkMode }) => {
                 initial={{ opacity: 0, y: -50 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className={`max-w-4xl w-full ${isDarkMode ? 'bg-gray-900' : 'bg-white text-gray-800'} bg-opacity-80  rounded-2xl shadow-xl overflow-hidden p-8`}
+                className={`max-w-4xl w-full ${isDarkMode ? 'bg-gray-900' : 'bg-white text-gray-800'} bg-opacity-80  rounded-2xl shadow-xl overflow-hidden pt-4 px-8 pb-8`}
             >
+                <div className="text-right">
+                    <button
+                        onClick={darkmode}
+                        title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                        className={`p-2 rounded-full border-2 transition duration-300 ${isDarkMode
+                            ? "border-white text-white hover:bg-white hover:text-black"
+                            : "border-gray-800 text-gray-800 hover:bg-gray-800 hover:text-white"
+                            }`}
+                    >
+                        {isDarkMode ? <Sun size={15} /> : <Moon size={15} />}
+                    </button>
+                </div>
                 <h2 className={`text-3xl font-bold mb-6 text-center bg-gradient-to-r ${isDarkMode ? 'from-green-400 to-emerald-500' : 'from-gray-600 to-gray-500'} text-transparent bg-clip-text`}>
                     Verify Your Email
                 </h2>

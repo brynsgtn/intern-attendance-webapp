@@ -12,7 +12,7 @@ import timezone from 'dayjs/plugin/timezone.js';
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-const UserTable = ({ key }) => {
+const UserTable = ({ refreshKey }) => {
     const { isDarkMode, isLoading, user } = useAuthStore();
     const { fetchUserAttendance, requestEditAttendance } = useAttendanceStore();
     const [currentPage, setCurrentPage] = useState(1);
@@ -46,7 +46,7 @@ const UserTable = ({ key }) => {
         };
 
         getAttendance();
-    }, [user._id, key, fetchUserAttendance]);
+    }, [user._id, refreshKey, fetchUserAttendance]);
 
     const handleViewOpenModal = (record) => {
         setSelectedRecord(record);
@@ -141,9 +141,16 @@ const UserTable = ({ key }) => {
                             <tr key={index} className={`hover:text-white transition ${isDarkMode ? "border-gray-700 hover:bg-emerald-600" : "border-gray-200 hover:bg-blue-500"}`}>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm">{formatDate(record.time_in)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm">{formatTime(record.time_in)}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">{record.time_out ? formatTime(record.time_out) : 'no time-out'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                    <span>{parseFloat(record.total_hours).toFixed(2)} hrs</span>
+                                    {record.time_out == null ? 'no time-out' : formatTime(record.time_out)}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                    <span>
+                                        {isNaN(parseFloat(record.total_hours))
+                                            ? "N/A"
+                                            : parseFloat(record.total_hours).toFixed(2) + " hrs"
+                                        }
+                                    </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                                     <span className={`px-2 py-1 rounded-md 
@@ -158,7 +165,7 @@ const UserTable = ({ key }) => {
                                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                                     <button
                                         onClick={() => handleViewOpenModal(record)}
-                                        className={`text-${record.status === "incomplete" ? "blue" : "green"}-400 hover:text-white hover:cursor-pointer`}
+                                        className="text-blue-400 hover:text-white hover:cursor-pointer"
                                     >View Details</button>
                                 </td>
                             </tr>
@@ -231,6 +238,8 @@ const Modal = ({ isOpen, onClose, onEditClick, record, isDarkMode }) => {
                     <p><span className="font-medium">Time Out:</span> {record.time_out ? formatTime(record.time_out) : 'N/A'}</p>
                     <p><span className="font-medium">Hours:</span> {record.total_hours ? `${parseFloat(record.total_hours).toFixed(2)} hrs` : 'N/A'}</p>
                     <p><span className="font-medium">Status:</span> {record.status}</p>
+                    { record.status == 'pending' ? <p><span className="font-medium">Request Reason:</span> {record.request_reason}</p> : ''}
+                    { record.status == 'rejected' ? <p><span className="font-medium">Reject Reason:</span> {record.rejection_reason}</p> : ''}
                 </div>
                 <div className="mt-6 flex justify-end space-x-3">
                     <button
@@ -288,6 +297,13 @@ const EditModal = ({ isOpen, onClose, record, isDarkMode, onSave }) => {
             const existingDate = prev[dateField]
                 ? new Date(prev[dateField])
                 : new Date(prev.date || new Date());
+
+                  // Check if existingDate is valid
+        if (isNaN(existingDate.getTime())) {
+            console.error("Invalid date:", prev[dateField], "Falling back to current date.");
+            existingDate.setTime(Date.now()); // Fallback to current date if invalid
+        }
+
 
             existingDate.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0);
 

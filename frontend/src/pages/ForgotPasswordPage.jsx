@@ -2,14 +2,14 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { useAuthStore } from "../store/authStore";
 import Input from "../components/Input";
-import { ArrowLeft, Loader, Mail } from "lucide-react";
+import { ArrowLeft, Loader, Mail, Sun, Moon } from "lucide-react";
 import { Link } from "react-router-dom";
 
-const ForgotPasswordPage = ({isDarkMode}) => {
+const ForgotPasswordPage = () => {
 	const [email, setEmail] = useState("");
 	const [isSubmitted, setIsSubmitted] = useState(false);
 
-	const { isLoading, forgotPassword } = useAuthStore();
+	const { isLoading, forgotPassword, isDarkMode, darkmode } = useAuthStore();
 
 	const handleSubmit = async (e) => {
 		e.preventDefault();
@@ -25,6 +25,18 @@ const ForgotPasswordPage = ({isDarkMode}) => {
 			className={`max-w-md w-full ${isDarkMode ? 'bg-gray-800' : 'bg-gray-300'} bg-opacity-50 rounded-2xl shadow-xl overflow-hidden`}
 		>
 			<div className='p-8'>
+			<div className="text-right">
+                    <button
+                        onClick={darkmode}
+                        title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                        className={`p-2 rounded-full border-2 transition duration-300 ${isDarkMode
+                            ? "border-white text-white hover:bg-white hover:text-black"
+                            : "border-gray-800 text-gray-800 hover:bg-gray-800 hover:text-white"
+                            }`}
+                    >
+                        {isDarkMode ? <Sun size={15} /> : <Moon size={15} />}
+                    </button>
+                </div>
 				<h2 className={`text-3xl font-bold mb-6 text-center bg-gradient-to-r ${isDarkMode ? 'from-green-400 to-emerald-500' : 'from-blue-600 to-blue-500'} text-transparent bg-clip-text`}>
 					Forgot Password
 				</h2>

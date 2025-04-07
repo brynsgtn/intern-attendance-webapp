@@ -195,14 +195,6 @@ const Header = () => {
                                                         closed: { opacity: 0, y: 20 }
                                                     }}
                                                 >
-                                                    <Link
-                                                        to="/users"
-                                                        onClick={() => setIsOpen(false)}
-                                                        className={`flex items-center p-3 rounded-xl bg-opacity-60 hover:bg-opacity-80 ${isDarkMode ? 'bg-gray-800 text-emerald-500' : 'bg-gray-200 text-blue-500'}`}
-                                                    >
-                                                        <Pencil className="w-5 h-5 mr-3" />
-                                                        Edit Requests
-                                                    </Link>
                                                 </motion.li>
                                             </>
                                         )}
@@ -296,14 +288,6 @@ const Header = () => {
                                                     >
                                                         <Users className="w-5 h-5 mr-3" />
                                                         Manage Users
-                                                    </Link>
-                                                    <Link
-                                                        to="/users"
-                                                        onClick={() => setIsDropdownOpen(false)}
-                                                        className={`flex items-center p-4 text-sm  transition-all border-b border-gray-700 ${isDarkMode ? 'bg-gray-800 text-emerald-500 text-gray-300 hover:bg-gray-700 hover:text-green-400' : 'bg-gray-300 text-blue-500 hover:bg-blue-700 hover:text-white'}`}
-                                                    >
-                                                        <Pencil className="w-5 h-5 mr-3" />
-                                                        Edit Requests
                                                     </Link>
                                                 </>
 

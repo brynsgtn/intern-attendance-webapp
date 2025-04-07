@@ -1,2 +1,7 @@
 @import "tailwindcss";
 
+@layer utilities {
+    .custom-clip-path {
+      clip-path: polygon(60% 30%, 120% 0%, 190% 150%, 80% 120%, 0% 80%, 100% 10%);
+    }
+  }
