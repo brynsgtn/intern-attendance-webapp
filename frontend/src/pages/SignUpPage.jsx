@@ -68,7 +68,7 @@ const SignUpPage = () => {
                                     icon={User}
                                     type="text"
                                     name="first_name"
-                                    placeholder="First Name"
+                                    placeholder="First Name (Required)"
                                     value={firstName}
                                     onChange={(e) => setFirstName(e.target.value)}
                                     isDarkMode={isDarkMode}
@@ -79,7 +79,7 @@ const SignUpPage = () => {
                                     icon={User}
                                     type="text"
                                     name="middle_initial"
-                                    placeholder="Middle Initial"
+                                    placeholder="Middle Initial (Optional)"
                                     value={middleInitial}
                                     onChange={(e) => setMiddleInitial(e.target.value)}
                                     isDarkMode={isDarkMode}
@@ -89,7 +89,7 @@ const SignUpPage = () => {
                                     icon={User}
                                     type="text"
                                     name="last_name"
-                                    placeholder="Last Name"
+                                    placeholder="Last Name (Required)"
                                     value={lastName}
                                     onChange={(e) => setLastName(e.target.value)}
                                     isDarkMode={isDarkMode}
@@ -101,7 +101,7 @@ const SignUpPage = () => {
                                 icon={Mail}
                                 type="email"
                                 name="email"
-                                placeholder="Email Address"
+                                placeholder="Email Address (Required)"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 isDarkMode={isDarkMode}
@@ -133,7 +133,7 @@ const SignUpPage = () => {
                                 icon={School}
                                 type="text"
                                 name="school"
-                                placeholder="School"
+                                placeholder="School (Required)"
                                 value={school}
                                 onChange={(e) => setSchool(e.target.value)}
                                 isDarkMode={isDarkMode}
@@ -174,7 +174,7 @@ const SignUpPage = () => {
                                 icon={User}
                                 type="text"
                                 name="first_name"
-                                placeholder="First Name"
+                                placeholder="First Name (Required)"
                                 value={firstName}
                                 onChange={(e) => setFirstName(e.target.value)}
                                 isDarkMode={isDarkMode}
@@ -185,7 +185,7 @@ const SignUpPage = () => {
                                 icon={User}
                                 type="text"
                                 name="middle_initial"
-                                placeholder="Middle Initial"
+                                placeholder="Middle Initial (Optional)"
                                 value={middleInitial}
                                 onChange={(e) => setMiddleInitial(e.target.value)}
                                 isDarkMode={isDarkMode}
@@ -195,7 +195,7 @@ const SignUpPage = () => {
                                 icon={User}
                                 type="text"
                                 name="last_name"
-                                placeholder="Last Name"
+                                placeholder="Last Name (Required)"
                                 value={lastName}
                                 onChange={(e) => setLastName(e.target.value)}
                                 isDarkMode={isDarkMode}
@@ -208,7 +208,7 @@ const SignUpPage = () => {
                                     icon={Mail}
                                     type="email"
                                     name="email"
-                                    placeholder="Email Address"
+                                    placeholder="Email Address (Required)"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     isDarkMode={isDarkMode}
@@ -240,7 +240,7 @@ const SignUpPage = () => {
                                         icon={School}
                                         type="text"
                                         name="school"
-                                        placeholder="School"
+                                        placeholder="School (Required)"
                                         value={school}
                                         onChange={(e) => setSchool(e.target.value)}
                                         isDarkMode={isDarkMode}

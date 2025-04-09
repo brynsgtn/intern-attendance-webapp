@@ -357,7 +357,7 @@ const updateAttendanceTime = async (req, res) => {
             if (admin) {
                 const adminEmail = admin.email;
                 // Send an email to the admin about the pending request
-                // await sendEditRequestEmail(adminEmail, memberName, change, request_reason);
+                await sendEditRequestEmail(adminEmail, memberName, change, request_reason);
             }
 
             res.status(200).json({
@@ -467,10 +467,17 @@ export const approveAttendance = async (req, res) => {
             attendance.total_hours = 0; // If no complete time in/out, reset total hours
         }
 
+        // Fetch the user details for sending the email
+        const memberName = `${user.first_name} ${user.last_name}`;
+        const memberEmail = user.email;
+
         attendance.status = "approved";
         attendance.request_reason = null;
 
         await attendance.save();
+
+        // Send the rejection email
+        await sendApprovalDenialEmail(memberEmail, memberName, attendance.status, "Approved request");
 
         res.status(200).json({
             message: "Attendance has been approved successfully.",
@@ -555,7 +562,7 @@ export const rejectAttendance = async (req, res) => {
         await attendance.save();
 
         // Send the rejection email
-        // await sendApprovalDenialEmail(memberEmail, memberName, attendance.status, rejectionReason);
+        await sendApprovalDenialEmail(memberEmail, memberName, attendance.status, rejectionReason);
 
         res.status(200).json({
             message: "Attendance has been rejected successfully.",
@@ -616,10 +623,9 @@ export const deleteAttendanceRecord = async (req, res) => {
 
 
 // ADMIN ONLY
+
 export const getAllAttendance = async (req, res) => {
     try {
-
-        // Get the requesting user
         const requestingUser = req.user;
 
         // Check if the user is admin
@@ -627,18 +633,49 @@ export const getAllAttendance = async (req, res) => {
             return res.status(403).json({
                 message: "Only admins can view all attendance."
             });
-        };
-        // Fetch attendance and populate the user_id field with the corresponding user data
+        }
+
+        // Fetch attendance and populate user fields
         const attendanceRecords = await Attendance.find()
-            .populate('user_id', 'first_name last_name email school team') // Specify the fields you want to populate
+            .populate('user_id', 'first_name last_name email school team')
             .sort({ created_at: -1 })
             .exec();
 
-        // Return the attendance records in JSON format
-        return res.json({
-            success: true,
-            data: attendanceRecords,
+        // Format and enhance each record
+        const formattedAttendance = attendanceRecords.map((record) => {
+            const time_in = dayjs(record.time_in).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss');
+            const time_out = dayjs(record.time_out).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss');
+
+            // Calculate total hours worked
+            let totalHours = 0;
+            if (record.time_in && record.time_out) {
+                const timeInPH = dayjs(record.time_in).tz(PH_TIMEZONE);
+                const timeOutPH = dayjs(record.time_out).tz(PH_TIMEZONE);
+                totalHours = timeOutPH.diff(timeInPH, 'hour', true);
+
+                if (totalHours >= 5) {
+                    totalHours -= 1; // Deduct 1 hour for lunch break
+                } else if (totalHours >= 4 && totalHours < 5) {
+                    totalHours = 4; // Force full 4 hours
+                }
+            }
+
+            const dayStatus = totalHours >= 4 ? 'Full-day' : 'Half-day';
+
+            return {
+                ...record.toObject(),
+                time_in,
+                time_out,
+                total_hours: totalHours.toFixed(2),
+                day_status: dayStatus,
+            };
         });
+
+        return res.status(200).json({
+            success: true,
+            data: formattedAttendance,
+        });
+
     } catch (error) {
         console.error("Error fetching attendance with user data:", error);
         return res.status(500).json({
@@ -648,45 +685,195 @@ export const getAllAttendance = async (req, res) => {
     }
 };
 
-// ADMIN and TEAM LEADERS ONLY
-export const getAllTeamMembersAttendance = async (req, res) => {
-    try {
-        // Get the requesting user
-        const requestingUser = req.user;
 
-        // Check if the user is a team leader or admin
-        if (!requestingUser.isTeamLeader && !requestingUser.isAdmin) {
-            return res.status(403).json({
-                message: "Only team leaders and admins can access team members' attendance."
+    // ADMIN and TEAM LEADERS ONLY
+    export const getAllTeamMembersAttendance = async (req, res) => {
+        try {
+            // Get the requesting user
+            const requestingUser = req.user;
+
+            // Check if the user is a team leader or admin
+            if (!requestingUser.isTeamLeader && !requestingUser.isAdmin) {
+                return res.status(403).json({
+                    message: "Only team leaders and admins can access team members' attendance."
+                });
+            }
+
+            // Determine the query based on user role
+            const teamQuery = requestingUser.isTeamLeader
+                ? { team: requestingUser.team }
+                : {};
+
+            // Find team members
+            const teamMembers = await User.find(teamQuery);
+
+            // Fetch attendance records for team members
+            const attendanceRecords = await Attendance.find({
+                user_id: { $in: teamMembers.map(member => member._id) }
+            })
+                .populate('user_id', 'first_name last_name email school team full_name')
+                .sort({ created_at: -1 }); // Sort by most recent first
+
+            // Format attendance records
+            const formattedAttendance = attendanceRecords.map(record => {
+                // Format times to Philippine Time
+                const timeIn = record.time_in
+                    ? dayjs(record.time_in).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
+                    : null;
+                const timeOut = record.time_out
+                    ? dayjs(record.time_out).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
+                    : null;
+
+                return {
+                    _id: record._id,
+                    user: {
+                        _id: record.user_id._id,
+                        full_name: record.user_id.full_name,
+                        email: record.user_id.email,
+                        school: record.user_id.school,
+                        team: record.user_id.team
+                    },
+                    time_in: timeIn,
+                    time_out: timeOut,
+                    total_hours: record.total_hours,
+                    status: record.status,
+                    created_at: dayjs(record.created_at).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss'),
+                    request_reason: record.request_reason,
+                    rejection_reason: record.rejection_reason
+                };
+            });
+
+            res.status(200).json({
+                message: "Team members' attendance retrieved successfully",
+                count: formattedAttendance.length,
+                attendance: formattedAttendance
+            });
+
+        } catch (error) {
+            console.error('Error in getAllTeamMembersAttendance:', error);
+            res.status(500).json({
+                message: "Internal server error",
+                error: error.message
             });
         }
+    };
 
-        // Determine the query based on user role
-        const teamQuery = requestingUser.isTeamLeader
-            ? { team: requestingUser.team }
-            : {};
+    // ADMIN ONLY
+    export const getMemberRemainingHours = async (req, res) => {
+        try {
+            const requestingUser = req.user;
+            const { memberId } = req.params;
 
-        // Find team members
-        const teamMembers = await User.find(teamQuery);
+            console.log("Requesting User:", requestingUser);
+            console.log("Requested Member ID:", memberId);
 
-        // Fetch attendance records for team members
-        const attendanceRecords = await Attendance.find({
-            user_id: { $in: teamMembers.map(member => member._id) }
-        })
-            .populate('user_id', 'first_name last_name email school team full_name')
-            .sort({ created_at: -1 }); // Sort by most recent first
+            // Only admins are allowed
+            if (!requestingUser.isAdmin) {
+                return res.status(403).json({
+                    message: "Only admins can view remaining hours."
+                });
+            }
 
-        // Format attendance records
-        const formattedAttendance = attendanceRecords.map(record => {
-            // Format times to Philippine Time
-            const timeIn = record.time_in
-                ? dayjs(record.time_in).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
-                : null;
-            const timeOut = record.time_out
-                ? dayjs(record.time_out).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
-                : null;
+            // Fetch the member by ID
+            const member = await User.findById(memberId);
 
-            return {
+            if (!member) {
+                return res.status(404).json({
+                    message: "Member not found."
+                });
+            }
+
+            // Fetch attendance records
+            const attendanceRecords = await Attendance.find({
+                user_id: member._id,
+                status: { $in: ['completed', 'approved'] }
+            });
+
+            const totalHoursWorked = attendanceRecords.reduce(
+                (total, record) => total + (record.total_hours || 0),
+                0
+            );
+
+            const remainingHours = Math.max(member.required_hours - totalHoursWorked, 0);
+
+            const result = {
+                user: {
+                    _id: member._id,
+                    full_name: member.full_name,
+                    email: member.email,
+                    team: member.team,
+                    school: member.school
+                },
+                required_hours: member.required_hours,
+                total_hours_worked: parseFloat(totalHoursWorked.toFixed(2)),
+                remaining_hours: parseFloat(remainingHours.toFixed(2)),
+                completion_percentage: parseFloat(
+                    ((totalHoursWorked / member.required_hours) * 100).toFixed(2)
+                )
+            };
+
+            res.status(200).json({
+                message: "Remaining hours retrieved successfully",
+                member: result
+            });
+
+        } catch (error) {
+            console.error("Error in getUserRemainingHours:", error);
+            res.status(500).json({
+                message: "Internal server error",
+                error: error.message
+            });
+        }
+    };
+
+
+    // ADMIN and TEAM LEADERS ONLY
+    export const filterAttendanceByName = async (req, res) => {
+        try {
+            // Get the requesting user
+            const requestingUser = req.user;
+
+            // Get query parameters
+            const { name } = req.query;
+
+            // Check if the user is a team leader or admin
+            if (!requestingUser.isTeamLeader && !requestingUser.isAdmin) {
+                return res.status(403).json({
+                    message: "Only team leaders and admins can filter attendance."
+                });
+            }
+
+            // Build user query based on name and user role
+            const userQuery = {
+                ...(requestingUser.isTeamLeader ? { team: requestingUser.team } : {}),
+                $or: [
+                    { first_name: { $regex: name, $options: 'i' } },
+                    { last_name: { $regex: name, $options: 'i' } },
+                    { full_name: { $regex: name, $options: 'i' } }
+                ]
+            };
+
+            // Find matching users
+            const matchingUsers = await User.find(userQuery);
+
+            // If no users found, return empty result
+            if (matchingUsers.length === 0) {
+                return res.status(200).json({
+                    message: "No users found matching the search criteria",
+                    count: 0,
+                    attendance: []
+                });
+            }
+
+            // Fetch attendance records for matching users
+            const attendanceRecords = await Attendance.find({
+                user_id: { $in: matchingUsers.map(user => user._id) }
+            })
+                .populate('user_id', 'first_name last_name email school team full_name required_hours')
+                .sort({ created_at: -1 });
+
+            // Format attendance records
+            const formattedAttendance = attendanceRecords.map(record => ({
                 _id: record._id,
                 user: {
                     _id: record.user_id._id,
@@ -695,351 +882,202 @@ export const getAllTeamMembersAttendance = async (req, res) => {
                     school: record.user_id.school,
                     team: record.user_id.team
                 },
-                time_in: timeIn,
-                time_out: timeOut,
+                time_in: record.time_in
+                    ? dayjs(record.time_in).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
+                    : null,
+                time_out: record.time_out
+                    ? dayjs(record.time_out).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
+                    : null,
                 total_hours: record.total_hours,
                 status: record.status,
-                created_at: dayjs(record.created_at).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss'),
+                created_at: dayjs(record.created_at).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
+            }));
+
+            res.status(200).json({
+                message: "Attendance records filtered by name retrieved successfully",
+                count: formattedAttendance.length,
+                attendance: formattedAttendance
+            });
+
+        } catch (error) {
+            console.error('Error in filterAttendanceByName:', error);
+            res.status(500).json({
+                message: "Internal server error",
+                error: error.message
+            });
+        }
+    };
+
+    // ADMIN ONLY
+    export const viewAllEditRequests = async (req, res) => {
+        try {
+            // Get the requesting user
+            const requestingUser = req.user;
+
+            // Check if the user is an admin
+            if (!requestingUser.isAdmin) {
+                return res.status(403).json({
+                    message: "Only admins can view all edit requests."
+                });
+            }
+
+            // Find all attendance records with pending edits
+            const editRequests = await Attendance.find({
+                $or: [
+                    { pending_time_in: { $ne: null } },
+                    { pending_time_out: { $ne: null } }
+                ],
+                status: 'pending'
+            })
+                .populate('user_id', 'first_name last_name email school team full_name')
+                .sort({ created_at: -1 });
+
+            // Format edit requests
+            const formattedEditRequests = editRequests.map(record => ({
+                _id: record._id,
+                user: {
+                    _id: record.user_id._id,
+                    full_name: record.user_id.full_name,
+                    email: record.user_id.email,
+                    school: record.user_id.school,
+                    team: record.user_id.team
+                },
+                original_time_in: record.time_in
+                    ? dayjs(record.time_in).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
+                    : null,
+                original_time_out: record.time_out
+                    ? dayjs(record.time_out).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
+                    : null,
+                pending_time_in: record.pending_time_in
+                    ? dayjs(record.pending_time_in).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
+                    : null,
+                pending_time_out: record.pending_time_out
+                    ? dayjs(record.pending_time_out).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
+                    : null,
                 request_reason: record.request_reason,
-                rejection_reason: record.rejection_reason
-            };
-        });
+                created_at: dayjs(record.created_at).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
+            }));
 
-        res.status(200).json({
-            message: "Team members' attendance retrieved successfully",
-            count: formattedAttendance.length,
-            attendance: formattedAttendance
-        });
+            res.status(200).json({
+                message: "Edit requests retrieved successfully",
+                count: formattedEditRequests.length,
+                edit_requests: formattedEditRequests
+            });
 
-    } catch (error) {
-        console.error('Error in getAllTeamMembersAttendance:', error);
-        res.status(500).json({
-            message: "Internal server error",
-            error: error.message
-        });
-    }
-};
-
-// ADMIN ONLY
-export const getMemberRemainingHours = async (req, res) => {
-    try {
-      const requestingUser = req.user;
-      const { memberId } = req.params;
-  
-      console.log("Requesting User:", requestingUser);
-      console.log("Requested Member ID:", memberId);
-  
-      // Only admins are allowed
-      if (!requestingUser.isAdmin) {
-        return res.status(403).json({
-          message: "Only admins can view remaining hours."
-        });
-      }
-  
-      // Fetch the member by ID
-      const member = await User.findById(memberId);
-  
-      if (!member) {
-        return res.status(404).json({
-          message: "Member not found."
-        });
-      }
-  
-      // Fetch attendance records
-      const attendanceRecords = await Attendance.find({
-        user_id: member._id,
-        status: { $in: ['completed', 'approved'] }
-      });
-  
-      const totalHoursWorked = attendanceRecords.reduce(
-        (total, record) => total + (record.total_hours || 0),
-        0
-      );
-  
-      const remainingHours = Math.max(member.required_hours - totalHoursWorked, 0);
-  
-      const result = {
-        user: {
-          _id: member._id,
-          full_name: member.full_name,
-          email: member.email,
-          team: member.team,
-          school: member.school
-        },
-        required_hours: member.required_hours,
-        total_hours_worked: parseFloat(totalHoursWorked.toFixed(2)),
-        remaining_hours: parseFloat(remainingHours.toFixed(2)),
-        completion_percentage: parseFloat(
-          ((totalHoursWorked / member.required_hours) * 100).toFixed(2)
-        )
-      };
-  
-      res.status(200).json({
-        message: "Remaining hours retrieved successfully",
-        member: result
-      });
-  
-    } catch (error) {
-      console.error("Error in getUserRemainingHours:", error);
-      res.status(500).json({
-        message: "Internal server error",
-        error: error.message
-      });
-    }
-  };
-  
-
-// ADMIN and TEAM LEADERS ONLY
-export const filterAttendanceByName = async (req, res) => {
-    try {
-        // Get the requesting user
-        const requestingUser = req.user;
-
-        // Get query parameters
-        const { name } = req.query;
-
-        // Check if the user is a team leader or admin
-        if (!requestingUser.isTeamLeader && !requestingUser.isAdmin) {
-            return res.status(403).json({
-                message: "Only team leaders and admins can filter attendance."
+        } catch (error) {
+            console.error('Error in viewAllEditRequests:', error);
+            res.status(500).json({
+                message: "Internal server error",
+                error: error.message
             });
         }
+    };
 
-        // Build user query based on name and user role
-        const userQuery = {
-            ...(requestingUser.isTeamLeader ? { team: requestingUser.team } : {}),
-            $or: [
-                { first_name: { $regex: name, $options: 'i' } },
-                { last_name: { $regex: name, $options: 'i' } },
-                { full_name: { $regex: name, $options: 'i' } }
-            ]
-        };
+    // ADMIN and TEAM LEADERS ONLY
+    export const filterAttendanceByDate = async (req, res) => {
+        try {
+            // Get the requesting user
+            const requestingUser = req.user;
 
-        // Find matching users
-        const matchingUsers = await User.find(userQuery);
+            // Get query parameters
+            const { date } = req.query;
 
-        // If no users found, return empty result
-        if (matchingUsers.length === 0) {
-            return res.status(200).json({
-                message: "No users found matching the search criteria",
-                count: 0,
-                attendance: []
+            // Validate date parameter
+            if (!date) {
+                return res.status(400).json({
+                    message: "Date parameter is required"
+                });
+            }
+
+            // Check if the user is a team leader or admin
+            if (!requestingUser.isTeamLeader && !requestingUser.isAdmin) {
+                return res.status(403).json({
+                    message: "Only team leaders and admins can filter attendance by date."
+                });
+            }
+
+            // Parse and validate the date
+            const parsedDate = dayjs(date, "YYYY-MM-DD", true).tz(PH_TIMEZONE);
+            if (!parsedDate.isValid()) {
+                return res.status(400).json({
+                    message: "Invalid date format. Use YYYY-MM-DD."
+                });
+            }
+
+            // Determine the query based on user role
+            const teamQuery = requestingUser.isTeamLeader
+                ? { team: requestingUser.team }
+                : {};
+
+            // Find team members
+            const teamMembers = await User.find(teamQuery);
+
+            // Set date range for the entire day in Philippine timezone
+            const dateStart = parsedDate.startOf('day').toDate();
+            const dateEnd = parsedDate.endOf('day').toDate();
+
+            // Fetch attendance records for team members on the specified date
+            const attendanceRecords = await Attendance.find({
+                user_id: { $in: teamMembers.map(member => member._id) },
+                created_at: { $gte: dateStart, $lte: dateEnd }
+            })
+                .populate('user_id', 'first_name last_name email school team full_name')
+                .sort({ created_at: -1 });
+
+            // Format attendance records
+            const formattedAttendance = attendanceRecords.map(record => ({
+                _id: record._id,
+                user: {
+                    _id: record.user_id._id,
+                    full_name: record.user_id.full_name,
+                    email: record.user_id.email,
+                    school: record.user_id.school,
+                    team: record.user_id.team
+                },
+                time_in: record.time_in
+                    ? dayjs(record.time_in).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
+                    : null,
+                time_out: record.time_out
+                    ? dayjs(record.time_out).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
+                    : null,
+                total_hours: record.total_hours,
+                status: record.status,
+                created_at: dayjs(record.created_at).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
+            }));
+
+            res.status(200).json({
+                message: "Attendance records filtered by date retrieved successfully",
+                date: parsedDate.format('YYYY-MM-DD'),
+                count: formattedAttendance.length,
+                attendance: formattedAttendance
+            });
+
+        } catch (error) {
+            console.error('Error in filterAttendanceByDate:', error);
+            res.status(500).json({
+                message: "Internal server error",
+                error: error.message
             });
         }
+    };
 
-        // Fetch attendance records for matching users
-        const attendanceRecords = await Attendance.find({
-            user_id: { $in: matchingUsers.map(user => user._id) }
-        })
-            .populate('user_id', 'first_name last_name email school team full_name required_hours')
-            .sort({ created_at: -1 });
 
-        // Format attendance records
-        const formattedAttendance = attendanceRecords.map(record => ({
-            _id: record._id,
-            user: {
-                _id: record.user_id._id,
-                full_name: record.user_id.full_name,
-                email: record.user_id.email,
-                school: record.user_id.school,
-                team: record.user_id.team
-            },
-            time_in: record.time_in
-                ? dayjs(record.time_in).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
-                : null,
-            time_out: record.time_out
-                ? dayjs(record.time_out).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
-                : null,
-            total_hours: record.total_hours,
-            status: record.status,
-            created_at: dayjs(record.created_at).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
-        }));
+    export const getTotalHoursForUser = async (req, res) => {
+        const { userId } = req.params;
 
-        res.status(200).json({
-            message: "Attendance records filtered by name retrieved successfully",
-            count: formattedAttendance.length,
-            attendance: formattedAttendance
-        });
+        try {
+            if (!mongoose.isValidObjectId(userId)) {
+                return res.status(400).json({ error: "Invalid user ID" });
+            }
 
-    } catch (error) {
-        console.error('Error in filterAttendanceByName:', error);
-        res.status(500).json({
-            message: "Internal server error",
-            error: error.message
-        });
-    }
-};
+            const totalHours = await Attendance.aggregate([
+                { $match: { user_id: new mongoose.Types.ObjectId(userId) } }, // Fix: Use 'new'
+                { $group: { _id: null, total: { $sum: "$total_hours" } } } // Sum total_hours
+            ]);
 
-// ADMIN ONLY
-export const viewAllEditRequests = async (req, res) => {
-    try {
-        // Get the requesting user
-        const requestingUser = req.user;
-
-        // Check if the user is an admin
-        if (!requestingUser.isAdmin) {
-            return res.status(403).json({
-                message: "Only admins can view all edit requests."
-            });
+            res.json({ totalHours: totalHours[0]?.total || 0 }); // Return total hours
+        } catch (error) {
+            console.error("Error calculating total hours:", error);
+            res.status(500).json({ error: "Internal server error" });
         }
-
-        // Find all attendance records with pending edits
-        const editRequests = await Attendance.find({
-            $or: [
-                { pending_time_in: { $ne: null } },
-                { pending_time_out: { $ne: null } }
-            ],
-            status: 'pending'
-        })
-            .populate('user_id', 'first_name last_name email school team full_name')
-            .sort({ created_at: -1 });
-
-        // Format edit requests
-        const formattedEditRequests = editRequests.map(record => ({
-            _id: record._id,
-            user: {
-                _id: record.user_id._id,
-                full_name: record.user_id.full_name,
-                email: record.user_id.email,
-                school: record.user_id.school,
-                team: record.user_id.team
-            },
-            original_time_in: record.time_in
-                ? dayjs(record.time_in).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
-                : null,
-            original_time_out: record.time_out
-                ? dayjs(record.time_out).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
-                : null,
-            pending_time_in: record.pending_time_in
-                ? dayjs(record.pending_time_in).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
-                : null,
-            pending_time_out: record.pending_time_out
-                ? dayjs(record.pending_time_out).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
-                : null,
-            request_reason: record.request_reason,
-            created_at: dayjs(record.created_at).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
-        }));
-
-        res.status(200).json({
-            message: "Edit requests retrieved successfully",
-            count: formattedEditRequests.length,
-            edit_requests: formattedEditRequests
-        });
-
-    } catch (error) {
-        console.error('Error in viewAllEditRequests:', error);
-        res.status(500).json({
-            message: "Internal server error",
-            error: error.message
-        });
-    }
-};
-
-// ADMIN and TEAM LEADERS ONLY
-export const filterAttendanceByDate = async (req, res) => {
-    try {
-        // Get the requesting user
-        const requestingUser = req.user;
-
-        // Get query parameters
-        const { date } = req.query;
-
-        // Validate date parameter
-        if (!date) {
-            return res.status(400).json({
-                message: "Date parameter is required"
-            });
-        }
-
-        // Check if the user is a team leader or admin
-        if (!requestingUser.isTeamLeader && !requestingUser.isAdmin) {
-            return res.status(403).json({
-                message: "Only team leaders and admins can filter attendance by date."
-            });
-        }
-
-        // Parse and validate the date
-        const parsedDate = dayjs(date, "YYYY-MM-DD", true).tz(PH_TIMEZONE);
-        if (!parsedDate.isValid()) {
-            return res.status(400).json({
-                message: "Invalid date format. Use YYYY-MM-DD."
-            });
-        }
-
-        // Determine the query based on user role
-        const teamQuery = requestingUser.isTeamLeader
-            ? { team: requestingUser.team }
-            : {};
-
-        // Find team members
-        const teamMembers = await User.find(teamQuery);
-
-        // Set date range for the entire day in Philippine timezone
-        const dateStart = parsedDate.startOf('day').toDate();
-        const dateEnd = parsedDate.endOf('day').toDate();
-
-        // Fetch attendance records for team members on the specified date
-        const attendanceRecords = await Attendance.find({
-            user_id: { $in: teamMembers.map(member => member._id) },
-            created_at: { $gte: dateStart, $lte: dateEnd }
-        })
-            .populate('user_id', 'first_name last_name email school team full_name')
-            .sort({ created_at: -1 });
-
-        // Format attendance records
-        const formattedAttendance = attendanceRecords.map(record => ({
-            _id: record._id,
-            user: {
-                _id: record.user_id._id,
-                full_name: record.user_id.full_name,
-                email: record.user_id.email,
-                school: record.user_id.school,
-                team: record.user_id.team
-            },
-            time_in: record.time_in
-                ? dayjs(record.time_in).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
-                : null,
-            time_out: record.time_out
-                ? dayjs(record.time_out).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
-                : null,
-            total_hours: record.total_hours,
-            status: record.status,
-            created_at: dayjs(record.created_at).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss')
-        }));
-
-        res.status(200).json({
-            message: "Attendance records filtered by date retrieved successfully",
-            date: parsedDate.format('YYYY-MM-DD'),
-            count: formattedAttendance.length,
-            attendance: formattedAttendance
-        });
-
-    } catch (error) {
-        console.error('Error in filterAttendanceByDate:', error);
-        res.status(500).json({
-            message: "Internal server error",
-            error: error.message
-        });
-    }
-};
-
-
-export const getTotalHoursForUser = async (req, res) => {
-    const { userId } = req.params;
-
-    try {
-        if (!mongoose.isValidObjectId(userId)) {
-            return res.status(400).json({ error: "Invalid user ID" });
-        }
-
-        const totalHours = await Attendance.aggregate([
-            { $match: { user_id: new mongoose.Types.ObjectId(userId) } }, // Fix: Use 'new'
-            { $group: { _id: null, total: { $sum: "$total_hours" } } } // Sum total_hours
-        ]);
-
-        res.json({ totalHours: totalHours[0]?.total || 0 }); // Return total hours
-    } catch (error) {
-        console.error("Error calculating total hours:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
-};
+    };

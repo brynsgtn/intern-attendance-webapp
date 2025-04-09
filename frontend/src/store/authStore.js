@@ -186,7 +186,48 @@ export const useAuthStore = create(
           });
           throw error;
         }
-      }
+      },
+      updateInternRole: async (formData) => {
+        set({ isLoading: true, error: null });
+        try {
+            // Construct the payload with user_id, role, and team (from the formData)
+            const { user_id, role, team } = formData;
+    
+            // Check if the required fields are present
+            if (!user_id || !role) {
+                throw new Error("User ID and role are required.");
+            }
+    
+            const response = await axios.put(`${API_URL}/update-user-role`, {
+              user_id,
+              role,
+              team
+          }, {
+              headers: {
+                  "Content-Type": "application/json", // Changed from multipart/form-data since no files are being sent
+              },
+              withCredentials: true,
+          });
+
+            const updatedUser = response.data;
+    
+            // Update the store with the new user data
+            set((state) => ({
+                user: { ...state.user, ...updatedUser },
+                error: null,
+                isLoading: false,
+            }));
+    
+            return updatedUser;
+        } catch (error) {
+            set({
+                error: error.response?.data?.message || "Error updating user role",
+                isLoading: false,
+            });
+            throw error;
+        }
+    },
+    
       
     }),
     {

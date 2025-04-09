@@ -29,8 +29,6 @@ const InternsTable = ({ refreshKey }) => {
 
     useEffect(() => {
         const getAttendance = async () => {
-            // console.log("Name filter changed to:", nameFilter);
-            // console.log("Filtered attendance count:", filteredAttendance.length);
             if (!user._id) {
                 console.error("User ID is not available");
                 return;
@@ -341,8 +339,8 @@ const Modal = ({ isOpen, onClose, onEditClick, record, isDarkMode }) => {
                     <p><span className="font-medium">Time Out:</span> {record.time_out ? formatTime(record.time_out) : 'N/A'}</p>
                     <p><span className="font-medium">Hours:</span> {record.total_hours ? `${parseFloat(record.total_hours).toFixed(2)} hrs` : 'N/A'}</p>
                     <p><span className="font-medium">Status:</span> {record.status}</p>
-                    { record.status == 'pending' ? <p><span className="font-medium">Request Reason:</span> {record.request_reason}</p> : ''}
-                    { record.status == 'rejected' ? <p><span className="font-medium">Reject Reason:</span> {record.rejection_reason}</p> : ''}
+                    { record.status == 'pending' ? <p><span className="font-medium">Request Reason:</span> {record.request_reason ? record.request_reason : 'no reason provided' }</p> : ''}
+                    { record.status == 'rejected' ? <p><span className="font-medium">Reject Reason:</span> {record.rejection_reason ? record.rejection_reason : 'no reason provided'}</p> : ''}
                 </div>
                 <div className="mt-6 flex justify-end space-x-3">
                     <button

@@ -236,10 +236,13 @@ const Modal = ({ isOpen, onClose, onEditClick, record, isDarkMode }) => {
                     <p><span className="font-medium">Date:</span> {formatDate(record.time_in)}</p>
                     <p><span className="font-medium">Time In:</span> {formatTime(record.time_in)}</p>
                     <p><span className="font-medium">Time Out:</span> {record.time_out ? formatTime(record.time_out) : 'N/A'}</p>
-                    <p><span className="font-medium">Hours:</span> {record.total_hours ? `${parseFloat(record.total_hours).toFixed(2)} hrs` : 'N/A'}</p>
+                    <p><span className="font-medium">Hours:</span>                                         {isNaN(parseFloat(record.total_hours))
+                        ? "N/A"
+                        : parseFloat(record.total_hours).toFixed(2) + " hrs"
+                    }</p>
                     <p><span className="font-medium">Status:</span> {record.status}</p>
-                    { record.status == 'pending' ? <p><span className="font-medium">Request Reason:</span> {record.request_reason}</p> : ''}
-                    { record.status == 'rejected' ? <p><span className="font-medium">Reject Reason:</span> {record.rejection_reason}</p> : ''}
+                    {record.status == 'pending' ? <p><span className="font-medium">Request Reason:</span> {record.request_reason}</p> : ''}
+                    {record.status == 'rejected' ? <p><span className="font-medium">Reject Reason:</span> {record.rejection_reason}</p> : ''}
                 </div>
                 <div className="mt-6 flex justify-end space-x-3">
                     <button
@@ -298,11 +301,11 @@ const EditModal = ({ isOpen, onClose, record, isDarkMode, onSave }) => {
                 ? new Date(prev[dateField])
                 : new Date(prev.date || new Date());
 
-                  // Check if existingDate is valid
-        if (isNaN(existingDate.getTime())) {
-            console.error("Invalid date:", prev[dateField], "Falling back to current date.");
-            existingDate.setTime(Date.now()); // Fallback to current date if invalid
-        }
+            // Check if existingDate is valid
+            if (isNaN(existingDate.getTime())) {
+                console.error("Invalid date:", prev[dateField], "Falling back to current date.");
+                existingDate.setTime(Date.now()); // Fallback to current date if invalid
+            }
 
 
             existingDate.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0);

@@ -102,9 +102,9 @@ router.post('/login', login);
 router.post('/logout', logout);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password/:token', resetPassword);
-router.post('/add-new-intern', addNewIntern);
+router.post('/add-new-intern', verifyToken, addNewIntern);
 router.delete('/delete-intern/:internId',verifyToken, deleteIntern);
-router.patch('/update-user-role', verifyToken, updateUserRole);
+router.put('/update-user-role', verifyToken, updateUserRole);
 router.put('/update-user-profile', verifyToken, uploadMiddleware, updateUserProfile);
 router.put('/update-other-user-profile/:id', verifyToken, adminUpdateUserProfile);
 

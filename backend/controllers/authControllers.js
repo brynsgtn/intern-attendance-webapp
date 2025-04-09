@@ -246,10 +246,11 @@ export const resendVerificationEmail = async (req, res) => {
     }
 };
 
+// ADMIN ONLY
 export const updateUserRole = async (req, res) => {
     try {
-        const { user_id, role } = req.body;
-        const requestingUser = req.user; // Assuming authentication middleware adds `req.user`
+        const { user_id, role, team } = req.body;
+        const requestingUser = req.user; // Auth middleware adds `req.user`
 
         // Validate input
         if (!user_id || !role) {
@@ -267,34 +268,63 @@ export const updateUserRole = async (req, res) => {
             return res.status(404).json({ message: "User not found." });
         }
 
+        // Normalize role input (handle capitalization differences from frontend)
+        const normalizedRole = role.toUpperCase();
+
         // Handle role assignment
-        if (role === "ADMIN") {
-            user.isAdmin = true;
-            user.isTeamLeader = false;
-            user.isFinished = false;
-        } else if (role === "TEAM_LEADER") {
-            user.isAdmin = false;
-            user.isTeamLeader = true;
-            user.isFinished = false;
-        } else if (role === "MEMBER") {
-            user.isAdmin = false;
-            user.isTeamLeader = false;
-            user.isFinished = false;
-        } else if (role === "FINISHED") {
-            user.isFinished = true;
-            user.isAdmin = false;
-            user.isTeamLeader = false;
-        } else {
-            return res.status(400).json({ message: "Invalid role selection. Choose 'ADMIN', 'TEAM_LEADER', or 'MEMBER'." });
+        switch (normalizedRole) {
+            case "ADMIN":
+                user.isAdmin = true;
+                user.isTeamLeader = false;
+                user.isFinished = false;
+                break;
+            case "TEAM_LEADER":
+                user.isAdmin = false;
+                user.isTeamLeader = true;
+                user.isFinished = false;
+                break;
+            case "MEMBER":
+                user.isAdmin = false;
+                user.isTeamLeader = false;
+                user.isFinished = false;
+                break;
+            default:
+                return res.status(400).json({
+                    message: "Invalid role. Choose 'ADMIN', 'TEAM_LEADER', 'MEMBER', or 'FINISHED'."
+                });
+        }
+
+        // Update the team if provided
+        if (team) {
+            user.team = team;
         }
 
         await user.save();
-        res.status(200).json({ message: `User role updated successfully to ${role}.` });
+
+        // Respond with updated user info for frontend
+        res.status(200).json({
+            message: `User role updated successfully to ${normalizedRole}.`,
+            user: {
+                _id: user._id,
+                full_name: user.full_name,
+                email: user.email,
+                image: user.image,
+                team: user.team,
+                isAdmin: user.isAdmin,
+                isTeamLeader: user.isTeamLeader,
+                isFinished: user.isFinished,
+                school: user.school,
+                required_hours: user.required_hours,
+                lastLogin: user.lastLogin,
+            },
+        });
 
     } catch (error) {
+        console.error("Error updating user role:", error);
         res.status(500).json({ message: "Internal server error.", error: error.message });
     }
-}
+};
+
 
 // USER ONLY
 export const updateUserProfile = async (req, res) => {

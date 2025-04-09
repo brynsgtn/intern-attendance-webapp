@@ -40,7 +40,8 @@ function App() {
 
   // Paths that should not show the header
   const noHeaderandFooterPaths = ["/", "/signup", "/login", "/verify-email", "/forgot-password"];
-  const shouldShowHeaderandFooter = !noHeaderandFooterPaths.includes(location.pathname);
+  const shouldShowHeaderandFooter = !noHeaderandFooterPaths.includes(location.pathname)&&
+  !location.pathname.startsWith("/reset-password/");;
 
   if (isCheckingAuth) return <LoadingSpinner />;
 

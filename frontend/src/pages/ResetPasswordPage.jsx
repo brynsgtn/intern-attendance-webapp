@@ -5,11 +5,14 @@ import { useNavigate, useParams } from "react-router-dom";
 import Input from "../components/Input";
 import { Lock } from "lucide-react";
 import toast from "react-hot-toast";
+import PasswordInput from "../components/PasswordInput";
 
-const ResetPasswordPage = ({isDarkMode}) => {
+const ResetPasswordPage = () => {
 	const [password, setPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
-	const { resetPassword, error, isLoading, message } = useAuthStore();
+	const { resetPassword, error, isLoading, message, isDarkMode } = useAuthStore();
+
+	const confirmedPassword = password === confirmPassword;
 
 	const { token } = useParams();
 	const navigate = useNavigate();
@@ -49,35 +52,37 @@ const ResetPasswordPage = ({isDarkMode}) => {
 				{message && <p className={`${isDarkMode ? "text-gray-400" : "text-gray-600"} text-sm mb-4`}>{message}</p>}
 
 				<form onSubmit={handleSubmit}>
-					<Input
-						icon={Lock}
-						type='password'
-						placeholder='New Password'
-						value={password}
-						onChange={(e) => setPassword(e.target.value)}
-						required
-						isDarkMode={isDarkMode}
-					/>
+					<div>
+						<PasswordInput
+							icon={Lock}
+							type='password'
+							placeholder='New Password'
+							value={password}
+							onChange={(e) => setPassword(e.target.value)}
+							required
+							isDarkMode={isDarkMode}
+						/>
+						<PasswordInput
+							icon={Lock}
+							type='password'
+							placeholder='Confirm New Password'
+							value={confirmPassword}
+							onChange={(e) => setConfirmPassword(e.target.value)}
+							required
+							isDarkMode={isDarkMode}
+						/>
+					</div>
 
-					<Input
-						icon={Lock}
-						type='password'
-						placeholder='Confirm New Password'
-						value={confirmPassword}
-						onChange={(e) => setConfirmPassword(e.target.value)}
-						required
-						isDarkMode={isDarkMode}
-					/>
-
+					{!confirmedPassword && <p className="text-red-500 font-semibold my-4">Passwords do not match!</p>}
 					<motion.button
 						whileHover={{ scale: 1.02 }}
 						whileTap={{ scale: 0.98 }}
 						className={`w-full py-3 px-4 font-bold rounded-lg shadow-lg transition duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 ${isDarkMode
-								? "bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 focus:ring-blue-500 "
-								: "bg-blue-500 border-gray-600 focus:ring-blue-500 text-white"
+							? "bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 focus:ring-blue-500 "
+							: "bg-blue-500 border-gray-600 focus:ring-blue-500 text-white"
 							}`}
 						type='submit'
-						disabled={isLoading}
+						disabled={!confirmedPassword || isLoading}
 					>
 						{isLoading ? "Resetting..." : "Set New Password"}
 					</motion.button>
