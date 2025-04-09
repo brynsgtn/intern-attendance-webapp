@@ -1,10 +1,14 @@
 import { useAuthStore } from "../store/authStore";
 import { Link } from "react-router-dom";
 import { Moon, Sun } from "lucide-react"; // Lucide icons
+import { useEffect } from "react";
 
 const Landing = () => {
-    const { isDarkMode, isAuthenticated, darkmode } = useAuthStore();
+    const { isDarkMode, isAuthenticated, darkmode, user } = useAuthStore();
 
+    useEffect(() => {
+        console.log (user)
+    })
     return (
         <div className="grid md:grid-cols-2 items-center md:gap-4 gap-8 max-w-5xl max-md:max-w-md mx-auto px-4 py-10 h-screen">
             {/* Text Section */}

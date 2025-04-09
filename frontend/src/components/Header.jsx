@@ -34,7 +34,7 @@ const Header = () => {
         }
         return "/profile.png"; // Default avatar
     };
-    
+
 
     // Scroll effect: Update `scrolled` state based on window scroll position
     useEffect(() => {
@@ -275,6 +275,22 @@ const Header = () => {
                                         <div className="p-3 border-b border-gray-700">
                                             <p className={`font-medium ${isDarkMode ? 'text-emerald-500' : 'text-blue-500'}`}>{user.last_name}, {user.first_name}</p>
                                             <p className={`text-sm ${isDarkMode ? 'text-emerald-500' : 'text-blue-400'} truncate`}>{user.email}</p>
+                                        </div>
+                                        <div className="py-1">
+
+                                            {user.isAdmin && (
+                                                <>
+                                                    <Link
+                                                        to="/dashboard"
+                                                        onClick={() => setIsDropdownOpen(false)}
+                                                        className={`flex items-center p-4 text-sm  transition-all border-b border-gray-700 ${isDarkMode ? 'bg-gray-800 text-emerald-500 text-gray-300 hover:bg-gray-700 hover:text-green-400' : 'bg-gray-300 text-blue-500 hover:bg-blue-700 hover:text-white'}`}
+                                                    >
+                                                        <Users className="w-5 h-5 mr-3" />
+                                                        Dashboard
+                                                    </Link>
+                                                </>
+
+                                            )}
                                         </div>
 
                                         <div className="py-1">

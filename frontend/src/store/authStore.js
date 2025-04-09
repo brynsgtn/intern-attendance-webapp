@@ -145,6 +145,49 @@ export const useAuthStore = create(
           throw error;
         }
       },
+      getAllUsers: async () => {
+        try {
+          const response = await axios.get(`${API_URL}/get-all-users`);
+          return response.data.data;
+        } catch (error) {
+          set({ error: error.response?.data?.message || "Error fetching users", isLoading: false });
+          throw error;
+        }
+      },
+      addNewIntern: async (internData) => {
+        try {
+          set({ isLoading: true, error: null });
+          
+          const response = await axios.post(`${API_URL}/add-new-intern`, internData);
+          
+          set({ isLoading: false });
+          return response.data;
+        } catch (error) {
+          set({ 
+            isLoading: false, 
+            error: error.response?.data?.message || "Error adding new intern" 
+          });
+          throw error;
+        }
+      },
+      
+      deleteIntern: async (internId) => {
+        try {
+          set({ isLoading: true, error: null });
+          
+          const response = await axios.delete(`${API_URL}/delete-intern/${internId}`);
+
+          set({ isLoading: false });
+          return response.data;
+        } catch (error) {
+          set({ 
+            isLoading: false, 
+            error: error.response?.data?.message || "Error deleting intern" 
+          });
+          throw error;
+        }
+      }
+      
     }),
     {
       name: "auth-storage", // Key for localStorage

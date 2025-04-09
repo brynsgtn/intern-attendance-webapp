@@ -13,6 +13,7 @@ import Header from "./components/Header";
 import { Toaster } from "react-hot-toast";
 import Footer from "./components/Footer";
 import Landing from "./pages/Landing";
+import UsersPage from "./pages/UsersPage";
 
 // protect routes that require authentication
 const ProtectedRoute = ({ children }) => {
@@ -45,11 +46,10 @@ function App() {
 
   return (
     <div
-      className={`min-h-screen flex flex-col justify-between + overflow-hidden relative ${
-        isDarkMode
+      className={`min-h-screen flex flex-col justify-between + overflow-hidden relative ${isDarkMode
           ? "bg-gradient-to-br from-gray-900 via-green-900 to-emerald-900"
           : "bg-gradient-to-br from-gray-50 via-gray-400 to-gray-500"
-      }`}
+        }`}
     >
       {/* Floating Background Shapes */}
       <FloatingShape
@@ -80,6 +80,14 @@ function App() {
       <main className="flex-grow flex items-center justify-center relative overflow-y-auto overflow-x-hidden">
         <Routes>
           <Route path="/" element={<Landing />} />
+          <Route path="/users" element={
+
+            <ProtectedRoute>
+            <UsersPage />
+           
+            </ProtectedRoute>
+          }
+          />
           <Route
             path="/dashboard"
             element={
@@ -130,7 +138,7 @@ function App() {
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-        
+
       </main>
 
       {shouldShowHeaderandFooter && <Footer />}

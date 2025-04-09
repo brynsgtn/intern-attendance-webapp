@@ -2,8 +2,11 @@ import bcryptjs from "bcryptjs";
 import crypto from "crypto";
 import fs from 'fs/promises';
 import path from 'path';
+import mongoose from "mongoose";
+
 
 import { User } from "../models/userModel.js";
+import { Attendance } from "../models/attendanceModel.js";
 import { generateTokenAndSetCookie } from "../utils/generateTokenAndSetCookie.js";
 import {
     sendVerificationEmail,
@@ -383,4 +386,134 @@ export const adminUpdateUserProfile = async (req, res) => {
     } catch (error) {
         res.status(500).json({ message: "Internal server error.", error: error.message });
     }
+
 };
+
+
+// ADMIN ONLY
+export const getAllUsers = async (req, res) => {
+    try {
+        const requestingUser = req.user;
+
+        // Check if the user is admin
+        if (!requestingUser.isAdmin) {
+            return res.status(403).json({
+                message: "Only admins can view all attendance."
+            });
+        };
+
+        const allUsers = await User.find();
+
+        // Return the attendance records in JSON format
+        return res.json({
+            success: true,
+            data: allUsers,
+        });
+    } catch (error) {
+        console.error("Error fetching all users", error);
+        return res.status(500).json({
+            success: false,
+            message: "Error fetching all users.",
+        });
+    }
+}
+
+// ADMIN ONLY
+export const addNewIntern = async (req, res) => {
+    const { first_name, middle_initial, last_name, email, password, school, required_hours, team, role } = req.body;
+
+    try {
+        if (!first_name || !last_name || !email || !password || !school || !required_hours || !team || !role) {
+            throw new Error("All fields are required");
+        };
+
+        const userAlreadyExists = await User.findOne({ email });
+
+        if (userAlreadyExists) {
+            return res.status(404).json({ message: "User already exists" });
+        };
+
+        const hashedPassword = await bcryptjs.hash(password, 10);
+        const verificationToken = Math.floor(100000 + Math.random() * 900000).toString();
+
+        const isAdmin = role === "Admin" ? true : false;
+        const isTeamLeader = role === "Team Leader" ? true : false;
+
+        const user = new User({
+            first_name,
+            middle_initial,
+            last_name,
+            email,
+            password: hashedPassword,
+            school,
+            required_hours,
+            team,
+            isAdmin, // Assign role if provided
+            isTeamLeader,
+        });
+
+        await user.save();
+
+        // jwt
+        res.status(201).json({
+            success: true,
+            message: "User created successfully",
+            user: {
+                ...user._doc,
+                password: undefined,
+            },
+        });
+
+    } catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+};
+
+// ADMIN ONLY
+export const deleteIntern = async (req, res) => {
+    try {
+      const requestingUser = req.user;
+      const { internId } = req.params;
+  
+      // Only admins are allowed to delete interns
+      if (!requestingUser.isAdmin) {
+        return res.status(403).json({
+          message: "Only admins can delete interns."
+        });
+      }
+
+      if (requestingUser._id.toString() === internId) {
+        return res.status(400).json({
+          message: "Admins cannot delete themselves."
+        });
+      }
+  
+      // Check if the user exists
+      const userToDelete = await User.findById(internId);
+  
+      if (!userToDelete) {
+        return res.status(404).json({
+          message: "Intern not found."
+        });
+      }
+  
+      // Remove associated attendance records
+      await Attendance.deleteMany({ user_id: new mongoose.Types.ObjectId(internId) });
+      
+      // Delete the user
+      await User.findByIdAndDelete(internId);
+  
+      return res.status(200).json({
+        success: true,
+        message: "Intern and associated records deleted successfully"
+      });
+      
+    } catch (error) {
+      console.error("Error deleting intern:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Error deleting intern.",
+        error: error.message
+      });
+    }
+  };

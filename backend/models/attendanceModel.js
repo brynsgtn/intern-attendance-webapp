@@ -9,9 +9,11 @@ const attendanceSchema = new mongoose.Schema({
     },
     time_in: {
       type: Date,
+      default:null,
     },
     time_out: {
       type: Date,
+      default:null,
     },
     total_hours: {
       type: Number, 

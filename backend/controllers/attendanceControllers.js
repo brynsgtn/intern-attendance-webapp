@@ -15,10 +15,10 @@ const PH_TIMEZONE = 'Asia/Manila';
 // USER
 export const timeIn = async (req, res) => {
     try {
-        const { user_id } = req.body;
+        const { userId } = req.params;
 
         // Validate input
-        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
             return res.status(400).json({ message: "User not found" });
         }
 
@@ -27,7 +27,7 @@ export const timeIn = async (req, res) => {
         const todayEnd = dayjs().tz(PH_TIMEZONE).endOf('day').toDate();
 
         let attendance = await Attendance.findOne({
-            user_id,
+            user_id: userId,
             created_at: { $gte: todayStart, $lte: todayEnd }
         });
 
@@ -39,8 +39,9 @@ export const timeIn = async (req, res) => {
         } else {
             // Create new attendance record
             attendance = new Attendance({
-                user_id,
+                user_id: userId,
                 time_in: dayjs().tz(PH_TIMEZONE).toDate(),
+                time_out: null,
             });
         }
 
@@ -58,9 +59,9 @@ export const timeIn = async (req, res) => {
 // USER
 export const timeOut = async (req, res) => {
     try {
-        const { user_id } = req.body;
+        const { userId } = req.params;
 
-        if (!mongoose.Types.ObjectId.isValid(user_id)) {
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
             return res.status(400).json({ message: "User not found" });
         }
 
@@ -68,7 +69,7 @@ export const timeOut = async (req, res) => {
         const todayEnd = dayjs().tz(PH_TIMEZONE).endOf('day').toDate();
 
         let attendance = await Attendance.findOne({
-            user_id,
+            user_id: userId,
             created_at: { $gte: todayStart, $lte: todayEnd }
         });
 
@@ -80,21 +81,34 @@ export const timeOut = async (req, res) => {
             return res.status(400).json({ message: "Already timed out today." });
         }
 
-        // Set time out
-        attendance.time_out = dayjs().tz(PH_TIMEZONE).toDate();
+        // Save actual time out (current time PH)
+        const actualTimeOut = dayjs().tz(PH_TIMEZONE);
+        attendance.time_out = actualTimeOut.toDate();
 
-        // Compute total hours
         const timeInPH = dayjs(attendance.time_in).tz(PH_TIMEZONE);
-        const timeOutPH = dayjs(attendance.time_out).tz(PH_TIMEZONE);
 
-        let totalHours = timeOutPH.diff(timeInPH, 'hour', true); // true = float result
+        // Set the minimum start counting time to 9:00 AM of the same day
+        const nineAM = timeInPH.hour(9).minute(0).second(0).millisecond(0);
+        const effectiveStartTime = timeInPH.isBefore(nineAM) ? nineAM : timeInPH;
 
-        if (totalHours >= 4) {
-            totalHours = totalHours - 1; // Deduct 1 hour lunch
+        // Define cutoff time at 6:00 PM
+        const sixPM = dayjs().tz(PH_TIMEZONE).hour(18).minute(0).second(0).millisecond(0);
+
+        // Use the earlier between actual time-out and 6:00 PM
+        const effectiveEndTime = actualTimeOut.isAfter(sixPM) ? sixPM : actualTimeOut;
+
+        // Calculate total hours
+        let totalHours = effectiveEndTime.diff(effectiveStartTime, 'hour', true);
+
+        // Deduction rules
+        if (totalHours > 5) {
+            totalHours -= 1; // Deduct 1 hour for lunch
+        } else if (totalHours > 4 && totalHours <= 5) {
+            totalHours = 4;
         }
 
-        // Optional: Round to 2 decimal places
         attendance.total_hours = parseFloat(totalHours.toFixed(2));
+        attendance.status = "completed";
 
         await attendance.save();
 
@@ -119,7 +133,7 @@ export const getUserAttendance = async (req, res) => {
         }
 
         // Fetch attendance data for the user
-        const attendance = await Attendance.find({ user_id: userId });
+        const attendance = await Attendance.find({ user_id: userId }).sort({ created_at: -1 });
 
         if (!attendance || attendance.length === 0) {
             return res.status(404).json({ message: "No attendance records found" });
@@ -128,7 +142,7 @@ export const getUserAttendance = async (req, res) => {
         // Format time_in and time_out to Philippine Time (Asia/Manila)
         const formattedAttendance = attendance.map((record) => {
             let time_in = dayjs(record.time_in).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss');
-            let time_out = record.time_out ? dayjs(record.time_out).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss') : null;
+            let time_out = dayjs(record.time_out).tz(PH_TIMEZONE).format('YYYY-MM-DD HH:mm:ss');
 
             // Calculate total hours worked (deduct 1 hour if more than 4 hours)
             let totalHours = 0;
@@ -184,11 +198,11 @@ const validateDateTime = (date, time) => {
 };
 
 // USER
-const updateAttendanceTime = async (req, res, type) => {
+const updateAttendanceTime = async (req, res) => {
     try {
         const { date, time_in, time_out, request_reason } = req.body;
         const { userId } = req.params;
-        let change;
+        let change = null;
 
         if (!mongoose.Types.ObjectId.isValid(userId)) {
             return res.status(400).json({ message: "Invalid user ID." });
@@ -201,16 +215,14 @@ const updateAttendanceTime = async (req, res, type) => {
         }
         const memberName = `${user.first_name} ${user.last_name}`;
 
-        // Fetch the admin email
-        const admin = await User.findOne({ isAdmin: true }); // Assuming `isAdmin` flag is used
-        if (!admin) {
-            return res.status(404).json({ message: "Admin not found." });
-        }
-        const adminEmail = admin.email;
+        // Check if the user is an admin
+        const isAdmin = user.isAdmin;
+
         // Adjust the selected date to Philippine time (UTC+8)
         const selectedDateStart = dayjs(date).tz("Asia/Manila").startOf("day").toDate();
         const selectedDateEnd = dayjs(date).tz("Asia/Manila").endOf("day").toDate();
 
+        // Check if there is already a pending request for the attendance for non-admin users
         let attendance = await Attendance.findOne({
             user_id: userId,
             created_at: { $gte: selectedDateStart, $lte: selectedDateEnd }
@@ -220,48 +232,157 @@ const updateAttendanceTime = async (req, res, type) => {
             return res.status(404).json({ message: "No attendance record found for the selected date." });
         }
 
-        const { valid: validTimeIn, dateTime: timeInDateTime, message: timeInMessage } = validateDateTime(date, time_in);
-        const { valid: validTimeOut, dateTime: timeOutDateTime, message: timeOutMessage } = validateDateTime(date, time_out);
+        // If the user is not an admin, check if there is already a pending request
+        if (!isAdmin && attendance.status === "pending") {
+            return res.status(400).json({ message: "You already have a pending attendance request for this date." });
+        }
 
-        if (type === "time_in") {
-            if (!validTimeIn) return res.status(400).json({ message: timeInMessage });
+        let timeInDateTime = null;
+        let timeOutDateTime = null;
+        let validTimeIn = true;
+        let validTimeOut = true;
+        let timeInMessage = "";
+        let timeOutMessage = "";
 
-            if (attendance.pending_time_out && timeInDateTime.isAfter(dayjs(attendance.pending_time_out))) {
-                return res.status(400).json({ message: "Time-in cannot be later than the recorded time-out." });
+        // Validate time_in if provided
+        if (time_in) {
+            const result = validateDateTime(date, time_in);
+            validTimeIn = result.valid;
+            timeInDateTime = result.dateTime;
+            timeInMessage = result.message;
+
+            // Check if time_in is before 9 AM
+            const timeInHour = timeInDateTime.hour();
+            if (timeInHour < 9) {
+                return res.status(400).json({ message: "You can only edit attendance before 9 AM." });
             }
+        }
+
+        // Validate time_out if provided
+        if (time_out) {
+            const result = validateDateTime(date, time_out);
+            validTimeOut = result.valid;
+            timeOutDateTime = result.dateTime;
+            timeOutMessage = result.message;
+
+            // Check if time_out is before 9 AM
+            const timeOutHour = timeOutDateTime.hour();
+            if (timeOutHour < 9) {
+                return res.status(400).json({ message: "You can only edit attendance before 9 AM." });
+            }
+
+
+            // Ensure time_out is greater than time_in
+            if (timeOutDateTime.isBefore(timeInDateTime)) {
+                return res.status(400).json({ message: "Time out cannot be earlier than time in." });
+            }
+        }
+
+
+        // Handle Time-in validation
+        if (time_in && !validTimeIn) {
+            return res.status(400).json({ message: timeInMessage });
+        }
+
+        // Handle Time-out validation
+        if (time_out && !validTimeOut) {
+            return res.status(400).json({ message: timeOutMessage });
+        }
+
+        // Check if there are any changes
+        let noChange = true;
+
+        if (time_in && attendance.pending_time_in !== timeInDateTime.tz("Asia/Manila").toDate()) {
+            noChange = false;
             change = "Time in";
             attendance.pending_time_in = timeInDateTime.tz("Asia/Manila").toDate();
-            attendance.request_reason = request_reason;
-
         }
-        else if (type === "time_out") {
-            if (!validTimeOut) return res.status(400).json({ message: timeOutMessage });
 
-            if (attendance.pending_time_in && timeOutDateTime.isBefore(dayjs(attendance.pending_time_in))) {
-                return res.status(400).json({ message: "Time-out cannot be earlier than the recorded time-in." });
+        if (time_out && attendance.pending_time_out !== timeOutDateTime.tz("Asia/Manila").toDate()) {
+            noChange = false;
+            if (change === "Time in") {
+                change = "Time in and out"; // If time_in is already set, change to "Time in and out" when time_out is also provided
+            } else {
+                change = "Time out"; // Set change to "Time out" if only time_out is changed
             }
-            change = "Time out";
             attendance.pending_time_out = timeOutDateTime.tz("Asia/Manila").toDate();
+        }
+
+        if (request_reason && attendance.request_reason !== request_reason) {
+            noChange = false;
             attendance.request_reason = request_reason;
         }
 
-        attendance.status = "pending";
+        if (noChange) {
+            return res.status(400).json({ message: "No changes detected." });
+        }
+
+        // Admin logic: Directly approve the attendance and update the times
+        if (isAdmin) {
+            if (time_in) {
+                attendance.pending_time_in = null;
+                attendance.time_in = timeInDateTime.tz("Asia/Manila").toDate(); // Directly update the time_in
+            }
+            if (time_out) {
+                attendance.pending_time_out = null;
+                attendance.time_out = timeOutDateTime.tz("Asia/Manila").toDate(); // Directly update the time_out
+            }
+            attendance.status = "approved"; // Admin can approve directly
+        } else {
+            attendance.status = "pending"; // Non-admins need approval
+        }
+
+        // Calculate total hours as the difference between time_in and time_out
+        if (attendance.time_in && attendance.time_out) {
+            let diffInHours = dayjs(attendance.time_out).diff(dayjs(attendance.time_in), 'hour', true);
+
+            // Apply lunch break or set total hours based on conditions
+            if (diffInHours > 5) {
+                diffInHours -= 1; // Deduct 1 hour for lunch
+            } else if (diffInHours > 4 && diffInHours <= 5) {
+                diffInHours = 4; // Set total hours to exactly 4
+            }
+
+            // Save the calculated total hours
+            attendance.total_hours = diffInHours.toFixed(2); // Store total hours with 2 decimal places
+        }
+
+
+
         await attendance.save();
 
-        await sendEditRequestEmail(adminEmail, memberName, change, request_reason)
-        res.status(200).json({
-            message: `${type.replace("_", "-")} update is pending approval.`,
-            attendance
-        });
+        // If the user is not an admin, send an email to the admin for approval
+        if (!isAdmin) {
+            const admin = await User.findOne({ isAdmin: true }); // Find an admin
+            if (admin) {
+                const adminEmail = admin.email;
+                // Send an email to the admin about the pending request
+                // await sendEditRequestEmail(adminEmail, memberName, change, request_reason);
+            }
+
+            res.status(200).json({
+                message: `${change ? change : "Attendance update"} is pending approval.`,
+                attendance
+            });
+        } else {
+            res.status(200).json({
+                message: `${change ? change : "Attendance update"} has been updated.`,
+                attendance
+            });
+        }
+
+
 
     } catch (error) {
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
 
-export const updateTimeIn = (req, res) => updateAttendanceTime(req, res, "time_in");
 
-export const updateTimeOut = (req, res) => updateAttendanceTime(req, res, "time_out");
+
+// Unified route handler
+export const updateAttendance = (req, res) => updateAttendanceTime(req, res);
+
 
 // ADMIN ONLY
 export const approveAttendance = async (req, res) => {
@@ -269,50 +390,28 @@ export const approveAttendance = async (req, res) => {
         const { date } = req.body;
         const { userId } = req.params;
 
-
-        // Get the requesting user
         const requestingUser = req.user;
-
-        let emailSent = false; // Track whether the email was sent
-        let changeDetails = '';
-
-        console.log("Starting attendance approval process");
-
-        // Validate user ID
         if (!mongoose.Types.ObjectId.isValid(userId)) {
             return res.status(400).json({ message: "Invalid user ID." });
         }
 
-        // Check if the user is admin
         if (!requestingUser.isAdmin) {
-            return res.status(403).json({
-                message: "Only admins can approve requests."
-            });
+            return res.status(403).json({ message: "Only admins can approve requests." });
         }
 
-        // Validate and parse date, adjust to Philippine time
         const parsedDate = dayjs(date, "YYYY-MM-DD", true).tz("Asia/Manila");
         if (!parsedDate.isValid()) {
-            return res.status(400).json({
-                message: "Invalid date format. Use YYYY-MM-DD.",
-                details: "Date could not be parsed"
-            });
+            return res.status(400).json({ message: "Invalid date format. Use YYYY-MM-DD." });
         }
 
-        console.log("Parsed Date:", parsedDate);
-
-        // Fetch the user details
         const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ message: "User not found." });
         }
-        const memberName = `${user.first_name} ${user.last_name}`;
-        const memberEmail = user.email;
 
         const selectedDateStart = parsedDate.startOf('day').toDate();
         const selectedDateEnd = parsedDate.endOf('day').toDate();
 
-        // Find the attendance record
         let attendance = await Attendance.findOne({
             user_id: userId,
             created_at: { $gte: selectedDateStart, $lte: selectedDateEnd }
@@ -322,47 +421,55 @@ export const approveAttendance = async (req, res) => {
             return res.status(404).json({ message: "No attendance record found for the selected date." });
         }
 
-        console.log("Attendance Record Found:", attendance);
+        let emailSent = false;
+        let changeDetails = '';
 
-        // Ensure time-out is either null or later than time-in
-        if (attendance.pending_time_out && attendance.pending_time_out <= attendance.pending_time_in) {
-            return res.status(400).json({
-                message: "Time-out must be later than time-in or null.",
-                details: "Invalid time-out update request."
-            });
-        }
-
-        // Check for pending time-in and/or time-out updates
         if (attendance.pending_time_in) {
             attendance.time_in = attendance.pending_time_in;
             attendance.pending_time_in = null;
-            console.log("Time-in updated");
-            emailSent = true; // Mark that email should be sent
+            emailSent = true;
             changeDetails = 'Time-in updated';
-        } else if (attendance.pending_time_out) {
+        }
+
+        if (attendance.pending_time_out) {
             attendance.time_out = attendance.pending_time_out;
             attendance.pending_time_out = null;
-            console.log("Time-out updated");
-            emailSent = true; // Mark that email should be sent
+            emailSent = true;
             changeDetails = 'Time-out updated';
-        } else {
-            console.log("No time update required");
+        }
+
+        if (!emailSent) {
             return res.status(200).json({
                 message: "No update required. No pending time-in or time-out changes found.",
                 attendance
             });
         }
 
-        // If there was any change (time-in or time-out), approve the attendance
-        if (emailSent) {
-            attendance.status = "approved";
-            attendance.request_reason = null;
+        // Calculate total hours
+        if (attendance.time_in && attendance.time_out) {
+            // Parse time_in and time_out in the Philippine timezone
+            const timeInPH = dayjs(attendance.time_in).tz(PH_TIMEZONE);
+            const timeOutPH = dayjs(attendance.time_out).tz(PH_TIMEZONE);
 
-            // Send the approval email
-            // await sendApprovalDenialEmail(memberEmail, memberName, attendance.status, changeDetails);
+            // Calculate the total duration in hours as a floating-point number
+            let totalHours = timeOutPH.diff(timeInPH, 'hour', true); // 'true' returns decimal value
+
+            // Apply the lunch break deduction rules
+            if (totalHours > 5) {
+                totalHours -= 1; // Deduct 1 hour for lunch
+            } else if (totalHours > 4 && totalHours <= 5) {
+                totalHours = 4; // Set total hours to exactly 4
+            }
+
+            // Optional: Round to 2 decimal places
+            attendance.total_hours = parseFloat(totalHours.toFixed(2));
+        } else {
+            attendance.total_hours = 0; // If no complete time in/out, reset total hours
         }
 
-        // Save the updated attendance record
+        attendance.status = "approved";
+        attendance.request_reason = null;
+
         await attendance.save();
 
         res.status(200).json({
@@ -371,18 +478,13 @@ export const approveAttendance = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Error Details:", {
-            errorName: error.name,
-            errorMessage: error.message,
-            errorStack: error.stack
-        });
-
         res.status(500).json({
             message: "Server error",
             error: error.message
         });
     }
 };
+
 
 
 //ADMIN ONLY
@@ -475,6 +577,44 @@ export const rejectAttendance = async (req, res) => {
 };
 
 
+//USER ONLY
+//router.delete('/attendance/:userId', deleteAttendanceRecord);
+export const deleteAttendanceRecord = async (req, res) => {
+    try {
+        const { date } = req.body;  // Date passed in request body
+        const { userId } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({ message: "Invalid user ID." });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
+        }
+
+        const selectedDateStart = dayjs(date).tz("Asia/Manila").startOf("day").toDate();
+        const selectedDateEnd = dayjs(date).tz("Asia/Manila").endOf("day").toDate();
+
+        let attendance = await Attendance.findOne({
+            user_id: userId,
+            created_at: { $gte: selectedDateStart, $lte: selectedDateEnd }
+        });
+
+        if (!attendance) {
+            return res.status(404).json({ message: "No attendance record found for the selected date." });
+        }
+
+        await Attendance.deleteOne({ _id: attendance._id });
+
+        res.status(200).json({ message: "Attendance record deleted successfully." });
+    } catch (error) {
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+
+
 // ADMIN ONLY
 export const getAllAttendance = async (req, res) => {
     try {
@@ -491,6 +631,7 @@ export const getAllAttendance = async (req, res) => {
         // Fetch attendance and populate the user_id field with the corresponding user data
         const attendanceRecords = await Attendance.find()
             .populate('user_id', 'first_name last_name email school team') // Specify the fields you want to populate
+            .sort({ created_at: -1 })
             .exec();
 
         // Return the attendance records in JSON format
@@ -579,84 +720,74 @@ export const getAllTeamMembersAttendance = async (req, res) => {
     }
 };
 
-// ADMIN and TEAM LEADERS ONLY
-export const getUserRemainingHours = async (req, res) => {
+// ADMIN ONLY
+export const getMemberRemainingHours = async (req, res) => {
     try {
-        // Get the requesting user
-        const requestingUser = req.user;
-        console.log("User making request:", req.user); // Debugging log
-        // Check if the user is a team leader or admin
-        if (!requestingUser.isTeamLeader && !requestingUser.isAdmin) {
-            return res.status(403).json({
-                message: "Only team leaders and admins can view remaining hours."
-            });
-        }
-
-        // Determine the query based on user role
-        const teamQuery = requestingUser.isTeamLeader
-            ? { team: requestingUser.team }
-            : {};
-
-        // Find team members
-        const teamMembers = await User.find(teamQuery);
-
-        // Aggregate to calculate remaining hours
-        const memberHoursDetails = await Promise.all(
-            teamMembers.map(async (member) => {
-                // Calculate total hours worked
-                const attendanceRecords = await Attendance.find({
-                    user_id: member._id,
-                    status: { $in: ['completed', 'approved'] }
-                });
-
-                const totalHoursWorked = attendanceRecords.reduce(
-                    (total, record) => total + (record.total_hours || 0),
-                    0
-                );
-
-                // Calculate remaining hours
-                const remainingHours = Math.max(
-                    member.required_hours - totalHoursWorked,
-                    0
-                );
-
-                return {
-                    user: {
-                        _id: member._id,
-                        full_name: member.full_name,
-                        email: member.email,
-                        team: member.team,
-                        school: member.school
-                    },
-                    required_hours: member.required_hours,
-                    total_hours_worked: parseFloat(totalHoursWorked.toFixed(2)),
-                    remaining_hours: parseFloat(remainingHours.toFixed(2)),
-                    completion_percentage: parseFloat(
-                        ((totalHoursWorked / member.required_hours) * 100).toFixed(2)
-                    )
-                };
-            })
-        );
-
-        // Sort members by remaining hours (descending)
-        const sortedMemberHours = memberHoursDetails.sort(
-            (a, b) => b.remaining_hours - a.remaining_hours
-        );
-
-        res.status(200).json({
-            message: "Member remaining hours retrieved successfully",
-            count: sortedMemberHours.length,
-            members: sortedMemberHours
+      const requestingUser = req.user;
+      const { memberId } = req.params;
+  
+      console.log("Requesting User:", requestingUser);
+      console.log("Requested Member ID:", memberId);
+  
+      // Only admins are allowed
+      if (!requestingUser.isAdmin) {
+        return res.status(403).json({
+          message: "Only admins can view remaining hours."
         });
-
+      }
+  
+      // Fetch the member by ID
+      const member = await User.findById(memberId);
+  
+      if (!member) {
+        return res.status(404).json({
+          message: "Member not found."
+        });
+      }
+  
+      // Fetch attendance records
+      const attendanceRecords = await Attendance.find({
+        user_id: member._id,
+        status: { $in: ['completed', 'approved'] }
+      });
+  
+      const totalHoursWorked = attendanceRecords.reduce(
+        (total, record) => total + (record.total_hours || 0),
+        0
+      );
+  
+      const remainingHours = Math.max(member.required_hours - totalHoursWorked, 0);
+  
+      const result = {
+        user: {
+          _id: member._id,
+          full_name: member.full_name,
+          email: member.email,
+          team: member.team,
+          school: member.school
+        },
+        required_hours: member.required_hours,
+        total_hours_worked: parseFloat(totalHoursWorked.toFixed(2)),
+        remaining_hours: parseFloat(remainingHours.toFixed(2)),
+        completion_percentage: parseFloat(
+          ((totalHoursWorked / member.required_hours) * 100).toFixed(2)
+        )
+      };
+  
+      res.status(200).json({
+        message: "Remaining hours retrieved successfully",
+        member: result
+      });
+  
     } catch (error) {
-        console.error('Error in getUserRemainingHours:', error);
-        res.status(500).json({
-            message: "Internal server error",
-            error: error.message
-        });
+      console.error("Error in getUserRemainingHours:", error);
+      res.status(500).json({
+        message: "Internal server error",
+        error: error.message
+      });
     }
-};
+  };
+  
 
 // ADMIN and TEAM LEADERS ONLY
 export const filterAttendanceByName = async (req, res) => {
@@ -893,4 +1024,22 @@ export const filterAttendanceByDate = async (req, res) => {
 };
 
 
-// sendEmail Completion (mailtrap to member) - is this possible?
+export const getTotalHoursForUser = async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        if (!mongoose.isValidObjectId(userId)) {
+            return res.status(400).json({ error: "Invalid user ID" });
+        }
+
+        const totalHours = await Attendance.aggregate([
+            { $match: { user_id: new mongoose.Types.ObjectId(userId) } }, // Fix: Use 'new'
+            { $group: { _id: null, total: { $sum: "$total_hours" } } } // Sum total_hours
+        ]);
+
+        res.json({ totalHours: totalHours[0]?.total || 0 }); // Return total hours
+    } catch (error) {
+        console.error("Error calculating total hours:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+};
