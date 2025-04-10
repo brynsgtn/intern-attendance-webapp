@@ -13,7 +13,8 @@ import {
     viewAllEditRequests,
     filterAttendanceByDate,
     getTotalHoursForUser,
-    updateAttendance
+    updateAttendance,
+    deleteAttendanceRecord
 } from "../controllers/attendanceControllers.js";
 import { verifyToken } from '../middleware/verifyToken.js';
 
@@ -32,5 +33,6 @@ router.get('/filter-by-name',verifyToken, filterAttendanceByName);
 router.get('/edit-requests', verifyToken, viewAllEditRequests);
 router.get('/filter-by-date', verifyToken, filterAttendanceByDate);
 router.get('/get-total-hours/:userId', verifyToken, getTotalHoursForUser);
+router.delete('/delete-attendance/:attendanceId', verifyToken, deleteAttendanceRecord);
 
 export default router; 

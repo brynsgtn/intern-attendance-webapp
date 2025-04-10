@@ -11,7 +11,7 @@ import TabMenu from "../components/TabMenu";
 
 
 const DashboardPage = () => {
-	const { user, logout, isDarkMode } = useAuthStore();
+	const { user, isDarkMode } = useAuthStore();
 	const { timeIn, timeOut, getTotalHours, refreshAttendance } = useAttendanceStore();
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [totalHours, setTotalHours] = useState(0);
@@ -27,6 +27,7 @@ const DashboardPage = () => {
 				try {
 					const response = await getTotalHours(user._id);
 					setTotalHours(response.data.totalHours);
+					console.log(response.data.totalHours);
 				} catch (error) {
 					console.error("Error fetching total hours:", error);
 				}

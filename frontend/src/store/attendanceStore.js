@@ -108,8 +108,25 @@ export const useAttendanceStore = create((set) => ({
             console.error("Error fetching intern's remaining hours:", error);
             throw error;
         }
-    }
-
+    },
+    deleteAttendance: async (attendanceId) => {
+        try {
+            set({ isLoading: true, error: null });
+            
+            const response = await axios.delete(`${API_URL}/delete-attendance/${attendanceId}`, {
+                withCredentials: true // This is important to send cookies
+            });
+    
+            set({ isLoading: false });
+            return response.data;
+        } catch (error) {
+            set({ 
+                isLoading: false, 
+                error: error.response?.data?.message || "Error deleting attendance record" 
+            });
+            throw error;
+        }
+    },
 })
 );
 

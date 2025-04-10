@@ -14,12 +14,13 @@ dayjs.extend(timezone);
 
 const UserTable = ({ refreshKey }) => {
     const { isDarkMode, isLoading, user } = useAuthStore();
-    const { fetchUserAttendance, requestEditAttendance } = useAttendanceStore();
+    const { fetchUserAttendance, requestEditAttendance, deleteAttendance } = useAttendanceStore();
     const [currentPage, setCurrentPage] = useState(1);
     const [userAttendance, setUserAttendance] = useState([]);
     const rowsPerPage = 5;
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [selectedRecord, setSelectedRecord] = useState(null);
 
     useEffect(() => {
@@ -36,6 +37,9 @@ const UserTable = ({ refreshKey }) => {
 
                 if (response && response.data && response.data.attendance) {
                     console.log("Attendance Data:", response.data.attendance);
+                    response.data.attendance.forEach(record => {
+                        console.log(`Record ID: ${record._id}, Total Hours: ${record.total_hours}`);
+                    });
                     setUserAttendance(response.data.attendance);
                 } else {
                     console.error("Attendance data not found in response");
@@ -66,6 +70,44 @@ const UserTable = ({ refreshKey }) => {
     const handleEditCloseModal = () => {
         setIsEditModalOpen(false);
         setSelectedRecord(null);
+    };
+    const handleDeleteConfirmOpen = () => {
+        setIsViewModalOpen(false); // Close the view modal
+        setIsDeleteConfirmOpen(true); // Open the delete confirmation modal
+    };
+
+    const handleDeleteConfirmClose = () => {
+        setIsDeleteConfirmOpen(false);
+    };
+
+    const handleDeleteRecord = async () => {
+        if (!selectedRecord || !selectedRecord._id) {
+            console.error("No record selected for deletion");
+            return;
+        }
+
+        try {
+            console.log("Deleting record with ID:", selectedRecord._id);
+            const response = await deleteAttendance(selectedRecord._id);
+
+            if (response) {
+                console.log("Record deleted successfully:", response);
+                // Update the local state by removing the deleted record
+                setUserAttendance(prevAttendance =>
+                    prevAttendance.filter(record => record._id !== selectedRecord._id)
+                );
+            } else {
+                console.error("Error deleting record: Response is undefined");
+            }
+        } catch (error) {
+            console.error("Error deleting record:", error.message);
+            if (error.response && error.response.data) {
+                console.error("Error details:", error.response.data);
+            }
+        } finally {
+            setIsDeleteConfirmOpen(false);
+            setSelectedRecord(null);
+        }
     };
 
     const handleSaveEdit = async (editedRecord) => {
@@ -99,6 +141,53 @@ const UserTable = ({ refreshKey }) => {
             }
         }
     };
+
+
+    const calculateWorkHours = (timeIn, timeOut, isApproved) => {
+        // Convert the time_in and time_out to local time
+        const timeInLocal = dayjs(timeIn).local();
+        const timeOutLocal = dayjs(timeOut).local();
+
+        // Define the work day window
+        const workStart = timeInLocal.set('hour', 9).set('minute', 0).set('second', 0); // 9 AM
+        const workEnd = timeInLocal.set('hour', 18).set('minute', 0).set('second', 0);  // 6 PM
+
+        // Adjust time_in and time_out to fit the work window
+        const adjustedStart = timeInLocal.isBefore(workStart) ? workStart : timeInLocal;  // If before 9 AM, start at 9 AM
+        const adjustedEnd = timeOutLocal.isAfter(workEnd) ? workEnd : timeOutLocal;  // If after 6 PM, end at 6 PM
+
+        // Calculate the difference between adjusted start and end times in minutes
+        const totalMinutes = adjustedEnd.diff(adjustedStart, 'minute');
+
+        // If the time_in is after the work_end or time_out is before work_start, return 0
+        if (totalMinutes <= 0) {
+            return "N/A";  // If no valid working time, return N/A
+        }
+
+        // Convert minutes to hours
+        let totalHours = totalMinutes / 60;
+
+        // Apply lunch break deduction rules
+        if (totalHours > 5) {
+            totalHours -= 1; // Deduct 1 hour for lunch
+            console.log('Debug after lunch deduction:', totalHours);
+        } else if (totalHours > 4 && totalHours <= 5) {
+            totalHours = 4; // Cap at 4 hours for 4-5 hour periods
+            console.log('Debug capped at 4 hours');
+        }
+
+        // Check if the request was approved and if the time_out was after 6 PM
+        if (isApproved == "approved" && timeOutLocal.isAfter(workEnd)) {
+            // Add the extra time after 6 PM to the total hours
+            const overtimeMinutes = timeOutLocal.diff(workEnd, 'minute');
+            totalHours += overtimeMinutes / 60;  // Add overtime to the total hours
+            return `${totalHours.toFixed(2)} hrs (including overtime)`;
+        }
+
+
+        return totalHours.toFixed(2) + " hrs";
+    };
+
 
 
     if (isLoading) {
@@ -146,9 +235,9 @@ const UserTable = ({ refreshKey }) => {
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                                     <span>
-                                        {isNaN(parseFloat(record.total_hours))
+                                        {isNaN(parseFloat(calculateWorkHours(record.time_in, record.time_out)))
                                             ? "N/A"
-                                            : parseFloat(record.total_hours).toFixed(2) + " hrs"
+                                            : parseFloat(calculateWorkHours(record.time_in, record.time_out, record.status)).toFixed(2) + " hrs"
                                         }
                                     </span>
                                 </td>
@@ -202,6 +291,7 @@ const UserTable = ({ refreshKey }) => {
                 isOpen={isViewModalOpen}
                 onClose={handleViewCloseModal}
                 onEditClick={handleEditOpenModal}
+                onDeleteClick={handleDeleteConfirmOpen}
                 record={selectedRecord}
                 isDarkMode={isDarkMode}
             />
@@ -213,13 +303,21 @@ const UserTable = ({ refreshKey }) => {
                 isDarkMode={isDarkMode}
                 onSave={handleSaveEdit}
             />
+
+            <DeleteConfirmModal
+                isOpen={isDeleteConfirmOpen}
+                onClose={handleDeleteConfirmClose}
+                onConfirm={handleDeleteRecord}
+                record={selectedRecord}
+                isDarkMode={isDarkMode}
+            />
         </>
     );
 };
 
 export default UserTable;
 
-const Modal = ({ isOpen, onClose, onEditClick, record, isDarkMode }) => {
+const Modal = ({ isOpen, onClose, onEditClick, onDeleteClick, record, isDarkMode }) => {
     if (!isOpen || !record) return null;
 
     return (
@@ -257,11 +355,64 @@ const Modal = ({ isOpen, onClose, onEditClick, record, isDarkMode }) => {
                     </button>
 
                     <button
+                        onClick={onDeleteClick}
+                        className="px-4 py-2 text-sm font-medium rounded-lg transition duration-200 
+                        bg-red-600 text-white hover:bg-red-700 focus:ring-2 focus:ring-red-400 focus:outline-none"
+                    >
+                        Delete
+                    </button>
+
+                    <button
                         onClick={onClose}
                         className="px-4 py-2 text-sm font-medium rounded-lg transition duration-200 
                         bg-gray-600 text-white hover:bg-gray-700 focus:ring-2 focus:ring-gray-400 focus:outline-none"
                     >
                         Close
+                    </button>
+                </div>
+            </motion.div>
+        </div>
+    );
+};
+
+const DeleteConfirmModal = ({ isOpen, onClose, onConfirm, record, isDarkMode }) => {
+    if (!isOpen || !record) return null;
+
+    return (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/50 backdrop-blur-lg">
+            <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ duration: 0.3 }}
+                className={`p-6 rounded-2xl w-full max-w-md shadow-xl border ${isDarkMode ? "bg-gray-900 text-white border-gray-700" : "bg-white text-gray-900 border-gray-200"}`}
+            >
+                <div className="text-center">
+                    <div className={`mx-auto flex items-center justify-center h-12 w-12 rounded-full ${isDarkMode ? "bg-red-900" : "bg-red-100"} mb-4`}>
+                        <svg className="h-6 w-6 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <h3 className="text-lg font-medium mb-2">Confirm Deletion</h3>
+                    <p className="text-sm mb-4">
+                        Are you sure you want to delete the attendance record for {formatDate(record.time_in)}? This action cannot be undone.
+                    </p>
+                </div>
+                <div className="mt-6 flex justify-center space-x-4">
+                    <button
+                        onClick={onClose}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg transition duration-200 
+                        ${isDarkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-200 hover:bg-gray-300"} 
+                        focus:ring-2 focus:ring-gray-400 focus:outline-none`}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        className="px-4 py-2 text-sm font-medium rounded-lg transition duration-200 
+                        bg-red-600 text-white hover:bg-red-700 focus:ring-2 focus:ring-red-400 focus:outline-none"
+                    >
+                        Delete
                     </button>
                 </div>
             </motion.div>
