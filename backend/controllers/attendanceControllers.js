@@ -267,6 +267,8 @@ const validateDateTime = (date, time) => {
     return { valid: true, dateTime };
 };
 
+
+
 // USER
 const updateAttendanceTime = async (req, res) => {
     try {
@@ -1148,5 +1150,135 @@ export const getTotalHoursForUser = async (req, res) => {
     } catch (error) {
         console.error("Error calculating total hours:", error);
         res.status(500).json({ error: "Internal server error" });
+    }
+};
+
+
+export const createAttendanceForDate = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { date, time_in, time_out, request_reason } = req.body;
+
+        // Validate user ID
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({ message: "Invalid user ID" });
+        }
+
+        // Validate the provided date
+        const providedDate = dayjs(date).tz(PH_TIMEZONE).startOf('day');
+        const currentDate = dayjs().tz(PH_TIMEZONE).startOf('day');
+
+        // Check if the provided date is today or in the future
+        if (providedDate.isAfter(currentDate)) {
+            return res.status(400).json({ message: "Attendance cannot be requested for today or future dates" });
+        }
+
+        // Validate date and time inputs
+        const dateValidation = validateDateTime(date, time_in);
+        if (!dateValidation.valid) {
+            return res.status(400).json({ message: dateValidation.message });
+        }
+
+        const timeInDateTime = dateValidation.dateTime;
+        let timeOutDateTime = null;
+        
+        if (time_out) {
+            const timeOutValidation = validateDateTime(date, time_out);
+            if (!timeOutValidation.valid) {
+                return res.status(400).json({ message: timeOutValidation.message });
+            }
+            timeOutDateTime = timeOutValidation.dateTime;
+            
+            // Ensure time_out is after time_in
+            if (timeOutDateTime.isBefore(timeInDateTime)) {
+                return res.status(400).json({ message: "Time out cannot be earlier than time in" });
+            }
+        }
+
+        // Convert to date objects for Manila timezone
+        const dateStart = providedDate.toDate();
+        const dateEnd = providedDate.endOf('day').toDate();
+
+        // Check if attendance already exists for this date
+        let attendance = await Attendance.findOne({
+            user_id: userId,
+            created_at: { $gte: dateStart, $lte: dateEnd }
+        });
+
+        // Fetch user to check if admin
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        const isAdmin = user.isAdmin;
+        const memberName = `${user.first_name} ${user.last_name}`;
+
+        if (attendance) {
+            return res.status(400).json({ 
+                message: "Attendance record already exists for this date",
+                isAdmin: isAdmin
+            });
+        }
+
+        // Create new attendance record
+        attendance = new Attendance({
+            user_id: userId,
+            created_at: providedDate.toDate(),
+            status: isAdmin ? "approved" : "pending",
+        });
+
+        // Handle record creation differently based on user role
+        if (isAdmin) {
+            // Admin creates approved record directly
+            attendance.time_in = timeInDateTime.toDate();
+            if (timeOutDateTime) {
+                attendance.time_out = timeOutDateTime.toDate();
+                
+                // Calculate hours for direct admin creation
+                let diffInHours = timeOutDateTime.diff(timeInDateTime, 'hour', true);
+                
+                // Apply lunch break calculations
+                if (diffInHours > 5) {
+                    diffInHours -= 1; // Deduct lunch hour
+                } else if (diffInHours > 4 && diffInHours <= 5) {
+                    diffInHours = 4; // Cap at 4 hours
+                }
+                
+                attendance.total_hours = parseFloat(diffInHours.toFixed(2));
+                attendance.status = "completed";
+            }
+        } else {
+            // Regular user creates pending record
+            attendance.pending_time_in = timeInDateTime.toDate();
+            attendance.request_reason = request_reason || "Manual attendance creation request";
+            
+            if (timeOutDateTime) {
+                attendance.pending_time_out = timeOutDateTime.toDate();
+            }
+            
+            // Find an admin to notify
+            const admin = await User.findOne({ isAdmin: true });
+            if (admin) {
+                await sendEditRequestEmail(
+                    admin.email, 
+                    memberName, 
+                    "New attendance creation", 
+                    request_reason || "Manual attendance creation request"
+                );
+            }
+        }
+
+        await attendance.save();
+
+        res.status(201).json({
+            message: isAdmin 
+                ? "Attendance record created successfully" 
+                : "Attendance creation request submitted for approval",
+            attendance
+        });
+
+    } catch (error) {
+        console.error("Error creating attendance for date:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
     }
 };

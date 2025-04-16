@@ -14,7 +14,8 @@ import {
     filterAttendanceByDate,
     getTotalHoursForUser,
     updateAttendance,
-    deleteAttendanceRecord
+    deleteAttendanceRecord,
+    createAttendanceForDate
 } from "../controllers/attendanceControllers.js";
 import { verifyToken } from '../middleware/verifyToken.js';
 
@@ -27,6 +28,7 @@ router.post('/time-out/:userId', timeOut);
 router.post('/update-attendance/:userId', updateAttendance); 
 router.post('/approve-attendance/:userId', verifyToken, approveAttendance);
 router.post('/reject-attendance/:userId', verifyToken, rejectAttendance);
+router.post('/create-attendance/:userId', verifyToken, createAttendanceForDate);
 router.get('/team-attendance', verifyToken, getAllTeamMembersAttendance);
 router.get('/member-remaining-hours/:memberId', verifyToken, getMemberRemainingHours);
 router.get('/filter-by-name',verifyToken, filterAttendanceByName);

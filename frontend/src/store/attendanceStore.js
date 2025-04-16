@@ -127,6 +127,36 @@ export const useAttendanceStore = create((set) => ({
             throw error;
         }
     },
+    createAttendanceForDate: async (userId, date, time_in, time_out, request_reason) => {
+        set({ loading: true, error: null });
+        try {
+            const response = await axios.post(
+                `${API_URL}/create-attendance/${userId}`,
+                { date, time_in, time_out, request_reason }
+            );
+            
+            // Add the new attendance record to the state
+            set(state => ({
+                attendanceData: [response.data.attendance, ...state.attendanceData],
+                loading: false
+            }));
+            
+            return {
+                success: true,
+                data: response.data,
+                message: response.data.message
+            };
+        } catch (error) {
+            set({ 
+                error: error.response?.data?.message || 'Failed to create attendance record', 
+                loading: false 
+            });
+            return {
+                success: false,
+                message: error.response?.data?.message || 'Failed to create attendance record'
+            };
+        }
+    },
 })
 );
 

@@ -68,6 +68,53 @@ const InternsTable = ({ refreshKey }) => {
     };
 
 
+    const calculateWorkHours = (timeIn, timeOut, isApproved) => {
+        // Convert the time_in and time_out to local time
+        const timeInLocal = dayjs(timeIn).local();
+        const timeOutLocal = dayjs(timeOut).local();
+
+        // Define the work day window
+        const workStart = timeInLocal.set('hour', 9).set('minute', 0).set('second', 0); // 9 AM
+        const workEnd = timeInLocal.set('hour', 18).set('minute', 0).set('second', 0);  // 6 PM
+
+        // Adjust time_in and time_out to fit the work window
+        const adjustedStart = timeInLocal.isBefore(workStart) ? workStart : timeInLocal;  // If before 9 AM, start at 9 AM
+        const adjustedEnd = timeOutLocal.isAfter(workEnd) ? workEnd : timeOutLocal;  // If after 6 PM, end at 6 PM
+
+        // Calculate the difference between adjusted start and end times in minutes
+        const totalMinutes = adjustedEnd.diff(adjustedStart, 'minute');
+
+        // If the time_in is after the work_end or time_out is before work_start, return 0
+        if (totalMinutes <= 0) {
+            return "N/A";  // If no valid working time, return N/A
+        }
+
+        // Convert minutes to hours
+        let totalHours = totalMinutes / 60;
+
+        // Apply lunch break deduction rules
+        if (totalHours > 5) {
+            totalHours -= 1; // Deduct 1 hour for lunch
+            console.log('Debug after lunch deduction:', totalHours);
+        } else if (totalHours > 4 && totalHours <= 5) {
+            totalHours = 4; // Cap at 4 hours for 4-5 hour periods
+            console.log('Debug capped at 4 hours');
+        }
+
+        // Check if the request was approved and if the time_out was after 6 PM
+        if (isApproved == "approved" && timeOutLocal.isAfter(workEnd)) {
+            // Add the extra time after 6 PM to the total hours
+            const overtimeMinutes = timeOutLocal.diff(workEnd, 'minute');
+            totalHours += overtimeMinutes / 60;  // Add overtime to the total hours
+            return `${totalHours.toFixed(2)} hrs (including overtime)`;
+        }
+
+
+        return totalHours.toFixed(2) + " hrs";
+    };
+
+
+
 
     // Calculate filtered data during render
     console.log("Rendering with nameFilter:", nameFilter);
@@ -101,7 +148,7 @@ const InternsTable = ({ refreshKey }) => {
     if (!Array.isArray(filteredAttendance) || filteredAttendance.length === 0) {
         return (
             <>
-                 <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-4">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-4">
                     {/* Filter by Date */}
                     <div>
                         <label className="text-sm font-medium mr-2">Filter by Date:</label>
@@ -154,7 +201,7 @@ const InternsTable = ({ refreshKey }) => {
                                 ))}
                         </select>
                     </div>
-                    </div>
+                </div>
                 <div className={`flex justify-center items-center ${isDarkMode ? "bg-gray-900" : "bg-white"} p-4 min-h-[200px]`}>
                     <div className="text-lg text-gray-500">
                         No attendance records found.
@@ -311,6 +358,7 @@ const InternsTable = ({ refreshKey }) => {
                 onClose={handleViewCloseModal}
                 record={selectedRecord}
                 isDarkMode={isDarkMode}
+                calculateWorkHours={calculateWorkHours}
             />
 
         </>
@@ -319,7 +367,7 @@ const InternsTable = ({ refreshKey }) => {
 
 export default InternsTable;
 
-const Modal = ({ isOpen, onClose, onEditClick, record, isDarkMode }) => {
+const Modal = ({ isOpen, onClose, onEditClick, record, isDarkMode, calculateWorkHours }) => {
     if (!isOpen || !record) return null;
 
     return (
@@ -337,10 +385,14 @@ const Modal = ({ isOpen, onClose, onEditClick, record, isDarkMode }) => {
                     <p><span className="font-medium">Date:</span> {formatDate(record.time_in)}</p>
                     <p><span className="font-medium">Time In:</span> {formatTime(record.time_in)}</p>
                     <p><span className="font-medium">Time Out:</span> {record.time_out ? formatTime(record.time_out) : 'N/A'}</p>
-                    <p><span className="font-medium">Hours:</span> {record.total_hours ? `${parseFloat(record.total_hours).toFixed(2)} hrs` : 'N/A'}</p>
+                    <p><span className="font-medium">Hours:</span>
+                        {isNaN(parseFloat(calculateWorkHours(record.time_in, record.time_out)))
+                            ? " N/A"
+                            : parseFloat(calculateWorkHours(record.time_in, record.time_out, record.status)).toFixed(2) + " hrs"
+                        }</p>
                     <p><span className="font-medium">Status:</span> {record.status}</p>
-                    { record.status == 'pending' ? <p><span className="font-medium">Request Reason:</span> {record.request_reason ? record.request_reason : 'no reason provided' }</p> : ''}
-                    { record.status == 'rejected' ? <p><span className="font-medium">Reject Reason:</span> {record.rejection_reason ? record.rejection_reason : 'no reason provided'}</p> : ''}
+                    {record.status == 'pending' ? <p><span className="font-medium">Request Reason:</span> {record.request_reason ? record.request_reason : 'no reason provided'}</p> : ''}
+                    {record.status == 'rejected' ? <p><span className="font-medium">Reject Reason:</span> {record.rejection_reason ? record.rejection_reason : 'no reason provided'}</p> : ''}
                 </div>
                 <div className="mt-6 flex justify-end space-x-3">
                     <button
