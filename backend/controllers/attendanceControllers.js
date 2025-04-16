@@ -425,12 +425,13 @@ const updateAttendanceTime = async (req, res) => {
 
         // If the user is not an admin, send an email to the admin for approval
         if (!isAdmin) {
-            const admin = await User.findOne({ isAdmin: true }); // Find an admin
-            if (admin) {
-                const adminEmail = admin.email;
-                // Send an email to the admin about the pending request
-                await sendEditRequestEmail(adminEmail, memberName, change, request_reason);
+            const admins = await User.find({ isAdmin: true }); // Find all admins
+            if (admins.length > 0) {
+                for (const admin of admins) {
+                    await sendEditRequestEmail(admin.email, memberName, change, request_reason);
+                }
             }
+            
 
             res.status(200).json({
                 message: `${change ? change : "Attendance update"} is pending approval.`,
