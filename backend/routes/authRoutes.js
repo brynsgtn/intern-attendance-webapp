@@ -16,7 +16,8 @@ import {
     adminUpdateUserProfile,
     getAllUsers,
     addNewIntern,
-    deleteIntern
+    deleteIntern,
+    sendCompletionEmailController
 } from '../controllers/authControllers.js';
 import { verifyToken } from '../middleware/verifyToken.js';
 
@@ -103,6 +104,7 @@ router.post('/logout', logout);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password/:token', resetPassword);
 router.post('/add-new-intern', verifyToken, addNewIntern);
+router.post('/send-completion-email', sendCompletionEmailController);
 router.delete('/delete-intern/:internId',verifyToken, deleteIntern);
 router.put('/update-user-role', verifyToken, updateUserRole);
 router.put('/update-user-profile', verifyToken, uploadMiddleware, updateUserProfile);

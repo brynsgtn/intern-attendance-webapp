@@ -151,16 +151,16 @@ export const COMPLETION_TEMPLATE = `
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Request Completed</title>
+  <title>Internship Completed</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: linear-gradient(to right, #4CAF50, #45a049); padding: 20px; text-align: center;">
-    <h1 style="color: white; margin: 0;">Request Completed</h1>
+    <h1 style="color: white; margin: 0;">Internship Completed!</h1>
   </div>
   <div style="background-color: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
     <p>Hello {memberName},</p>
-    <p>Your request to update your records has been successfully processed.</p>
-    <p>If you have any concerns, feel free to contact support.</p>
+    <p>Your internship has been successfully completed. Congratulations!</p>
+    <p>You can now request your certificate of completion. If you have any questions, feel free to contact us.</p>
     <p>Best regards,<br>Ollopa Internship</p>
   </div>
 </body>

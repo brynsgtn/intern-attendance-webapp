@@ -3,7 +3,8 @@ import {
     PASSWORD_RESET_REQUEST_TEMPLATE,
     PASSWORD_RESET_SUCCESS_TEMPLATE,
     EDIT_REQUEST_EMAIL_TEMPLATE,
-    APPROVAL_DENIAL_TEMPLATE
+    APPROVAL_DENIAL_TEMPLATE,
+    COMPLETION_TEMPLATE
  } from "./emailTemplates.js";
 import { mailtrapClient, sender } from "./mailtrapConfig.js";
 
@@ -137,5 +138,26 @@ export const sendApprovalDenialEmail = async (email, memberName, status, changeD
     } catch (error) {
         console.error(`Error sending edit request ${status} email`, error);
         throw new Error(`Error sending edit request ${status} email: ${error}`);
+    }
+};
+
+export const sendCompletionEmail = async (email, memberName) => {
+    const recipient = [{ email }];
+    const emailContent = COMPLETION_TEMPLATE
+        .replace("{memberName}", memberName);
+
+    try {
+        const response = await mailtrapClient.send({
+            from: sender,
+            to: recipient,
+            subject: `Your Internship has been Completed`,
+            html: emailContent,
+            category: "Internship Completion Notification",
+        });
+
+        console.log(`Completion email sent successfully to ${email}`, response);
+    } catch (error) {
+        console.error(`Error sending completion email to ${email}`, error);
+        throw new Error(`Error sending completion email: ${error}`);
     }
 };

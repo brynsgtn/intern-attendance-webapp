@@ -12,7 +12,8 @@ import {
     sendVerificationEmail,
     sendWelcomeEmail,
     sendPasswordResetEmail,
-    sendResetSuccessEmail
+    sendResetSuccessEmail,
+    sendCompletionEmail
 } from "../mailtrap/emails.js";
 
 export const signup = async (req, res) => {
@@ -502,48 +503,77 @@ export const addNewIntern = async (req, res) => {
 // ADMIN ONLY
 export const deleteIntern = async (req, res) => {
     try {
-      const requestingUser = req.user;
-      const { internId } = req.params;
-  
-      // Only admins are allowed to delete interns
-      if (!requestingUser.isAdmin) {
-        return res.status(403).json({
-          message: "Only admins can delete interns."
-        });
-      }
+        const requestingUser = req.user;
+        const { internId } = req.params;
 
-      if (requestingUser._id.toString() === internId) {
-        return res.status(400).json({
-          message: "Admins cannot delete themselves."
+        // Only admins are allowed to delete interns
+        if (!requestingUser.isAdmin) {
+            return res.status(403).json({
+                message: "Only admins can delete interns."
+            });
+        }
+
+        if (requestingUser._id.toString() === internId) {
+            return res.status(400).json({
+                message: "Admins cannot delete themselves."
+            });
+        }
+
+        // Check if the user exists
+        const userToDelete = await User.findById(internId);
+
+        if (!userToDelete) {
+            return res.status(404).json({
+                message: "Intern not found."
+            });
+        }
+
+        // Remove associated attendance records
+        await Attendance.deleteMany({ user_id: new mongoose.Types.ObjectId(internId) });
+
+        // Delete the user
+        await User.findByIdAndDelete(internId);
+
+        return res.status(200).json({
+            success: true,
+            message: "Intern and associated records deleted successfully"
         });
-      }
-  
-      // Check if the user exists
-      const userToDelete = await User.findById(internId);
-  
-      if (!userToDelete) {
-        return res.status(404).json({
-          message: "Intern not found."
-        });
-      }
-  
-      // Remove associated attendance records
-      await Attendance.deleteMany({ user_id: new mongoose.Types.ObjectId(internId) });
-      
-      // Delete the user
-      await User.findByIdAndDelete(internId);
-  
-      return res.status(200).json({
-        success: true,
-        message: "Intern and associated records deleted successfully"
-      });
-      
+
     } catch (error) {
-      console.error("Error deleting intern:", error);
-      return res.status(500).json({
-        success: false,
-        message: "Error deleting intern.",
-        error: error.message
-      });
+        console.error("Error deleting intern:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Error deleting intern.",
+            error: error.message
+        });
     }
-  };
+};
+
+
+export const sendCompletionEmailController = async (req, res) => {
+    const { email, memberName, userId } = req.body;
+
+    if (!email || !memberName) {
+        return res.status(400).json({ error: 'Email and memberName are required' });
+    }
+
+    try {
+        await sendCompletionEmail(email, memberName); // Your email sending function
+
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            { isFinished: true }, // Update the isFinished field
+            { new: true } // Return the updated user object
+        );
+
+        if (!updatedUser) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        res.status(200).json({ message: 'Completion email sent successfully' });
+    } catch (error) {
+        console.error('Error sending completion email:', error);
+        res.status(500).json({ error: 'Failed to send completion email' });
+    }
+};
+

@@ -1,12 +1,12 @@
 import { motion } from "framer-motion";
 import { useAuthStore } from "../store/authStore";
 import { useState, useEffect } from "react";
-import { Pencil, Trash2, User, UserCheck, Users, ChevronLeft, ChevronRight, X, LucideUserPlus, LucideUserRoundPlus } from "lucide-react";
+import { Pencil, Trash2, User, UserCheck, Users, ChevronLeft, ChevronRight, X, SendHorizonal, LucideUserRoundPlus } from "lucide-react";
 import { useAttendanceStore } from "../store/attendanceStore";
 import { toast } from "react-hot-toast";
 
 const UsersPage = () => {
-    const { isDarkMode, getAllUsers, addNewIntern, deleteIntern, updateInternRole } = useAuthStore();
+    const { isDarkMode, getAllUsers, addNewIntern, deleteIntern, updateInternRole, sendCompletionEmail } = useAuthStore();
     const { getInternRemainingHours } = useAttendanceStore();
     const [showEditModal, setShowEditModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -17,6 +17,8 @@ const UsersPage = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
     const itemsPerPage = 10;
+    const [emailSent, setEmailSent] = useState(false); // State to track email sent status
+
 
     // New intern form state
     const [newIntern, setNewIntern] = useState({
@@ -79,6 +81,24 @@ const UsersPage = () => {
     const handleDelete = (user) => {
         setCurrentUser(user);
         setShowDeleteModal(true);
+    };
+
+    // Send completion email to the backend
+    const handleSendCompletionEmail = async (email, memberName, userId) => {
+        try {
+            await sendCompletionEmail(email, memberName, userId);
+            setEmailSent(true); // Set email sent status to true after success
+            toast.success(`Completion email sent to ${memberName}`);
+
+
+            if (error) {
+                toast.error(error || 'Failed to send email');
+            }
+        } catch (err) {
+            console.error('Error sending completion email:', err);
+            toast.error('Failed to send email');
+        }
+
     };
 
     const confirmEdit = async () => {
@@ -277,6 +297,7 @@ const UsersPage = () => {
                                                     />
                                                     <div>
                                                         <div className="font-medium">{user.full_name}</div>
+                                                        <div className="text-xs text-gray-500 dark:text-gray-400">{user.email}</div>
                                                         <div className="flex items-center text-xs text-gray-500">
                                                             {renderRoleIcon(getUserRole(user))}
                                                             {getUserRole(user)}
@@ -303,16 +324,39 @@ const UsersPage = () => {
                                                     <span className="text-xs font-medium text-green-500">Completed</span>
                                                 )}
                                             </td>
-                                            <td className="px-3 py-3">
-                                                <div className="flex justify-center space-x-2">
-                                                    <button onClick={() => handleEdit(user)} className={`p-1.5 rounded-full ${isDarkMode ? "bg-blue-700 hover:bg-blue-600" : "bg-blue-100 hover:bg-blue-200"} transition-colors`}>
-                                                        <Pencil size={16} className={isDarkMode ? "text-white" : "text-blue-700"} />
-                                                    </button>
-                                                    <button onClick={() => handleDelete(user)} className={`p-1.5 rounded-full ${isDarkMode ? "bg-red-700 hover:bg-red-600" : "bg-red-100 hover:bg-red-200"} transition-colors`}>
-                                                        <Trash2 size={16} className={isDarkMode ? "text-white" : "text-red-700"} />
-                                                    </button>
+                                            <td className="px-3 py-3 text-center">
+                                                <div className="flex justify-center gap-2">
+                                                    {user.remainingHours > 0 ? (
+                                                        <>
+                                                            <button onClick={() => handleEdit(user)} className="text-blue-500 hover:text-blue-700">
+                                                                <Pencil size={18} />
+                                                            </button>
+                                                            <button onClick={() => handleDelete(user)} className="text-red-500 hover:text-red-700">
+                                                                <Trash2 size={18} />
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        // Conditionally render buttons based on the email sent status
+                                                        user.isFinished ? (
+                                                            <button
+                                                                onClick={() => handleResendEmail(user.email, user.first_name, user._id)}
+                                                                className="inline-flex items-center gap-1 bg-blue-600 text-white px-3 py-1.5 rounded-full text-xs hover:bg-blue-700 transition"
+                                                            >
+                                                                <SendHorizonal size={20} /> Resend Email
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => handleSendCompletionEmail(user.email, user.first_name, user._id)}
+                                                                className="inline-flex items-center gap-1 bg-green-600 text-white px-3 py-1.5 rounded-full text-xs hover:bg-green-700 transition"
+                                                                disabled={isLoading}
+                                                            >
+                                                                {isLoading ? 'Sending...' : <><SendHorizonal size={20} /> Email Completion</>}
+                                                            </button>
+                                                        )
+                                                    )}
                                                 </div>
                                             </td>
+
                                         </tr>
                                     ))}
                                 </tbody>

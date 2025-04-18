@@ -8,6 +8,7 @@ import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
 import timezone from 'dayjs/plugin/timezone.js';
 import { SearchX } from "lucide-react";
+import * as XLSX from "xlsx";
 
 // Initialize plugins
 dayjs.extend(utc);
@@ -115,6 +116,37 @@ const InternsTable = ({ refreshKey }) => {
 
 
 
+    const handleExportToExcel = () => {
+        const exportData = filteredAttendance.map((record) => {
+            const fullName = `${record.user_id.first_name || ""} ${record.user_id.last_name || ""}`;
+            const date = dayjs(record.time_in).format("YYYY-MM-DD");
+            const timeIn = dayjs(record.time_in).format("hh:mm A");
+            const hasValidTimeOut = record.time_out && dayjs(record.time_out).isValid();
+            const timeOut = hasValidTimeOut ? dayjs(record.time_out).format("hh:mm A") : "No timeout";
+        
+            let hours = calculateWorkHours(record.time_in, record.time_out, record.status);
+            let hoursValue = parseFloat(hours);
+            hours = isNaN(hoursValue) ? 'Incomplete / Pending Request' : hoursValue.toFixed(2);
+
+            return {
+                Name: fullName,
+                Date: date,
+                "Time In": timeIn,
+                "Time Out": record.time_out ? timeOut : "No Time Out",
+                Hours: hours,
+            };
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Interns Attendance");
+
+        // Custom sheet title
+        const sheetTitle = "Interns_Attendance_" + dayjs().format("YYYYMMDD_HHmmss");
+        XLSX.writeFile(workbook, `${sheetTitle}.xlsx`);
+    };
+
+
 
     // Calculate filtered data during render
     console.log("Rendering with nameFilter:", nameFilter);
@@ -131,7 +163,7 @@ const InternsTable = ({ refreshKey }) => {
             : true;
 
         const matchesDate = selectedDate
-            ? dayjs(record.time_in).format("YYYY-MM-DD") === selectedDate
+            ? dayjs(record.time_in).local().format("YYYY-MM-DD") === selectedDate
             : true;
 
         const matchesTeam = teamFilter
@@ -202,6 +234,7 @@ const InternsTable = ({ refreshKey }) => {
                         </select>
                     </div>
                 </div>
+
                 <div className={`flex justify-center items-center ${isDarkMode ? "bg-gray-900" : "bg-white"} p-4 min-h-[200px]`}>
                     <div className="text-lg text-gray-500">
                         No attendance records found.
@@ -274,6 +307,22 @@ const InternsTable = ({ refreshKey }) => {
                                 ))}
                         </select>
                     </div>
+                    <div className=" justify-end ">
+                    <button
+                    onClick={handleExportToExcel}
+                    className={`px-3 py-2 rounded-md transition-colors duration-300 flex items-center ${isDarkMode
+                        ? "bg-gray-700 hover:bg-gray-600 text-white"
+                        : "bg-gray-200 hover:bg-gray-300 text-black"
+                        }`}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    <span className="ml-1">Export</span>
+                </button>
+                </div>
                 </div>
 
 

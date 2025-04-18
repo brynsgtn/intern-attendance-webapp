@@ -8,6 +8,8 @@ import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
 import timezone from 'dayjs/plugin/timezone.js';
 import { AlarmClockPlusIcon } from "lucide-react";
+import * as XLSX from 'xlsx'
+
 
 // Initialize plugins
 dayjs.extend(utc);
@@ -74,7 +76,7 @@ const UserTable = ({ refreshKey }) => {
     const handleCreateAttendance = async (formData) => {
         try {
             console.log("Submitting attendance data:", formData);
-            
+
             // Send the data as it is - the backend expects separate date and time strings
             const response = await createAttendanceForDate(
                 user._id,
@@ -83,23 +85,23 @@ const UserTable = ({ refreshKey }) => {
                 formData.time_out,
                 formData.request_reason
             );
-    
+
             if (response.success) {
                 // If successful, update the UI
                 setStatusMessage({
                     message: "Attendance record created successfully!",
                     type: "success"
                 });
-                
+
                 // Close the modal
                 setIsCreateModalOpen(false);
-                
+
                 // Refresh the attendance list to show the new record
                 const refreshResponse = await fetchUserAttendance(user._id);
                 if (refreshResponse && refreshResponse.data && refreshResponse.data.attendance) {
                     setUserAttendance(refreshResponse.data.attendance);
                 }
-                
+
                 // Show success message briefly
                 setTimeout(() => {
                     setStatusMessage({ message: "", type: "" });
@@ -283,6 +285,104 @@ const UserTable = ({ refreshKey }) => {
         return totalHours.toFixed(2) + " hrs";
     };
 
+    // Function to export attendance data to Excel (.xlsx)
+    const exportToExcel = () => {
+        if (!userAttendance || userAttendance.length === 0) {
+            setStatusMessage({
+                message: "No data to export",
+                type: "error"
+            });
+            setTimeout(() => {
+                setStatusMessage({ message: "", type: "" });
+            }, 3000);
+            return;
+        }
+
+        try {
+            // Calculate total hours
+            let totalHoursValue = 0;
+            userAttendance.forEach(record => {
+                const hoursText = calculateWorkHours(record.time_in, record.time_out, record.status);
+                const hoursNumber = parseFloat(hoursText);
+                if (!isNaN(hoursNumber)) {
+                    totalHoursValue += hoursNumber;
+                }
+            });
+
+            // Calculate remaining hours
+            const remainingHours = user.required_hours - totalHoursValue;
+
+            // Create a new workbook
+            const wb = XLSX.utils.book_new();
+
+            // Create data for the worksheet
+            const wsData = [
+                ['Name', `${user.first_name} ${user.last_name}`],
+                ['School', user.school],
+                ['Required Hours', user.required_hours],
+                ['Remaining Hours', remainingHours.toFixed(2)],
+                [], // Empty row
+                ['Date', 'Time In', 'Time Out', 'Hours'] // Headers for attendance data
+            ];
+
+            // Add attendance data rows
+            userAttendance.forEach(record => {
+                const date = formatDate(record.time_in);
+                const timeIn = formatTime(record.time_in);
+                const timeOut = record.time_out ? formatTime(record.time_out) : 'No time-out';
+                let hours = calculateWorkHours(record.time_in, record.time_out, record.status);
+                let hoursValue = parseFloat(hours);
+                hours = isNaN(hoursValue) ? 'incomplete' : hoursValue.toFixed(2);
+                wsData.push([date, timeIn, timeOut, hours]);
+
+            });
+
+            // Add total row
+            wsData.push(['', '', 'Total', `${totalHoursValue.toFixed(2)} hrs`]);
+
+            // Create a worksheet from the data
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+            // Add the worksheet to the workbook
+            XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
+
+            // Generate the Excel file as an array buffer
+            const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+
+            // Convert the array buffer to a Blob
+            const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+            // Create a download link and trigger the download
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+
+            link.setAttribute('href', url);
+            link.setAttribute('download', `${user.first_name}_${user.last_name}_attendance.xlsx`);
+            link.style.visibility = 'hidden';
+
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            setStatusMessage({
+                message: "Export successful!",
+                type: "success"
+            });
+            setTimeout(() => {
+                setStatusMessage({ message: "", type: "" });
+            }, 3000);
+        } catch (error) {
+            console.error("Error exporting to Excel:", error);
+            setStatusMessage({
+                message: "Failed to export data",
+                type: "error"
+            });
+            setTimeout(() => {
+                setStatusMessage({ message: "", type: "" });
+            }, 3000);
+        }
+    };
+
     if (isLoading) {
         return (
             <div className={`flex justify-center items-center ${isDarkMode ? "bg-gray-900" : "bg-white"} p-4`}>
@@ -301,21 +401,35 @@ const UserTable = ({ refreshKey }) => {
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
                     className={`mb-4 p-3 rounded-md ${statusMessage.type === "success"
-                            ? "bg-green-100 text-green-800 border border-green-200"
-                            : "bg-red-100 text-red-800 border border-red-200"
+                        ? "bg-green-100 text-green-800 border border-green-200"
+                        : "bg-red-100 text-red-800 border border-red-200"
                         }`}
                 >
                     {statusMessage.message}
                 </motion.div>
             )}
 
-            {/* Add Create Attendance Button */}
-            <div className="mb-4 flex justify-end">
+            {/* Add Export and Create Attendance Buttons */}
+            <div className="mb-4 flex justify-end space-x-2">
+                <button
+                    onClick={exportToExcel}
+                    className={`px-3 py-2 rounded-md transition-colors duration-300 flex items-center ${isDarkMode
+                        ? "bg-gray-700 hover:bg-gray-600 text-white"
+                        : "bg-gray-200 hover:bg-gray-300 text-black"
+                        }`}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    <span className="ml-1">Export Excel</span>
+                </button>
                 <button
                     onClick={handleCreateOpenModal}
                     className={`px-3 py-2 rounded-md transition-colors duration-300 ${isDarkMode
-                            ? "bg-gray-700 hover:bg-gray-600 text-white"
-                            : "bg-gray-200 hover:bg-gray-300 text-black"
+                        ? "bg-gray-700 hover:bg-gray-600 text-white"
+                        : "bg-gray-200 hover:bg-gray-300 text-black"
                         }`}
                 >
                     <AlarmClockPlusIcon size={25} />
@@ -760,12 +874,12 @@ const CreateAttendanceModal = ({ isOpen, onClose, onSave, isDarkMode }) => {
         const currentTimeOut = dayjs(formData.time_out).tz('Asia/Manila');
 
         const newTimeIn = dayjs.tz(
-            `${newDate} ${currentTimeIn.format('HH:mm')}`, 
+            `${newDate} ${currentTimeIn.format('HH:mm')}`,
             'YYYY-MM-DD HH:mm', 'Asia/Manila'
         ).toISOString();
 
         const newTimeOut = dayjs.tz(
-            `${newDate} ${currentTimeOut.format('HH:mm')}`, 
+            `${newDate} ${currentTimeOut.format('HH:mm')}`,
             'YYYY-MM-DD HH:mm', 'Asia/Manila'
         ).toISOString();
 
@@ -781,7 +895,7 @@ const CreateAttendanceModal = ({ isOpen, onClose, onSave, isDarkMode }) => {
         const currentDate = dayjs(formData.time_in).tz('Asia/Manila').format('YYYY-MM-DD');
 
         const newDateTime = dayjs.tz(
-            `${currentDate} ${value}`, 
+            `${currentDate} ${value}`,
             'YYYY-MM-DD HH:mm', 'Asia/Manila'
         ).toISOString();
 
